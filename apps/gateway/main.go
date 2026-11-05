@@ -13,7 +13,6 @@ import (
 	policyengine "github.com/pikcui/Walawe/packages/policy-engine"
 )
 
-// Struktur Request dari Agen AI (Kompatibel dengan OpenAI)
 type ChatRequest struct {
 	Model     string    `json:"model"`
 	Messages  []Message `json:"messages"`
@@ -25,7 +24,6 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-// Struktur Response (Simulasi)
 type ChatResponse struct {
 	ID      string   `json:"id"`
 	Object  string   `json:"object"`
@@ -41,7 +39,6 @@ var (
 )
 
 func main() {
-	// 1. Koneksi ke Database
 	dsn := "postgres://android@localhost:5432/walawe?sslmode=disable"
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
@@ -49,19 +46,24 @@ func main() {
 	}
 	dbStore = ledger.NewPgStore(pool)
 
-	// 2. Setup HTTP Router
+	mux := newMux()
+
+	port := ":8080"
+	fmt.Printf("Walawe Gateway running on %s\n", port)
+	log.Fatal(http.ListenAndServe(port, mux))
+}
+
+func newMux() http.Handler {
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
 
-	// 3. Endpoint Utama (OpenAI Compatible)
 	mux.HandleFunc("/v1/chat/completions", handleChatCompletions)
 
-	port := ":8080"
-	fmt.Printf("Walawe Gateway running on %s\n", port)
-	log.Fatal(http.ListenAndServe(port, mux))
+	return mux
 }
 
 func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -70,28 +72,23 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Parse Request
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	// Hardcode agent ID untuk testing (Nanti diganti API Key di Stage 5)
 	agentID := ledger.AccountID("agent_1")
 	holdAcc := ledger.AccountID("hold_agent_1")
-
-	// Estimasi biaya kasar untuk testing: 1 token = 10 MicroUSD
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
-	// 2. Cek Policy (Satpam)
 	policy := policyengine.Policy{
 		Status:            "active",
 		MaxCostPerRequest: ledger.MicroUSD(5000),
 		MaxCostPerDay:     ledger.MicroUSD(50000),
 		AllowedModels:     []string{"gpt-4"},
 	}
-	usage := policyengine.Usage{SpentToday: 0, SpentMonth: 0} // Nanti diambil dari DB
+	usage := policyengine.Usage{SpentToday: 0, SpentMonth: 0}
 	policyReq := policyengine.Request{Model: req.Model, MaxTokens: req.MaxTokens, EstimatedCost: estimatedCost}
 
 	decision := policyengine.Evaluate(policyReq, usage, policy)
@@ -101,12 +98,10 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Reserve (Tahan Uang)
 	requestID := fmt.Sprintf("req_%d", time.Now().UnixNano())
 	ctx := r.Context()
 
 	err := dbStore.Do(ctx, func(tx ledger.Tx) error {
-		// Taruh hold
 		h := ledger.Hold{
 			RequestID:     requestID,
 			CreditAccount: agentID,
@@ -118,8 +113,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if err := tx.PutHold(h); err != nil {
 			return err
 		}
-
-		// Pindahkan saldo ke hold
 		_, err := tx.InsertEntry(ledger.Entry{
 			Debit:          agentID,
 			Credit:         holdAcc,
@@ -136,22 +129,15 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Route ke Provider (Simulasi)
-	// Di Stage 4, ini akan memanggil OpenAI/Anthropic asli.
-	// Untuk sekarang kita beri jeda 1 detik lalu kembalikan dummy response.
 	time.Sleep(1 * time.Second)
-
-	// Simulasi pemakaian token aktual (lebih kecil dari estimasi)
 	actualTokens := int64(10)
-	actualCost := ledger.MicroUSD(actualTokens * 10) // 100 MicroUSD
+	actualCost := ledger.MicroUSD(actualTokens * 10)
 
-	// 5. Settle (Tagih biaya asli, kembalikan sisanya)
 	err = dbStore.Do(ctx, func(tx ledger.Tx) error {
 		h, found, err := tx.HoldByRequestID(requestID)
 		if err != nil || !found {
 			return fmt.Errorf("hold not found")
 		}
-
 		returnAmount := h.Amount - actualCost
 		h.BilledAmount = actualCost
 		h.Status = ledger.HoldSettled
@@ -160,8 +146,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		if err := tx.PutHold(h); err != nil {
 			return err
 		}
-
-		// Kembalikan sisa hold ke agen
 		if returnAmount > 0 {
 			_, err = tx.InsertEntry(ledger.Entry{
 				Debit:          holdAcc,
@@ -180,7 +164,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		log.Printf("WARNING: Settle failed for %s: %v", requestID, err)
 	}
 
-	// 6. Return Response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(ChatResponse{
 		ID:     requestID,
@@ -189,10 +172,4 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			{Message: Message{Role: "assistant", Content: "Halo! Ini adalah respons simulasi dari Walawe Gateway."}},
 		},
 	})
-}
-
-func newMux() http.Handler {
-	// Placeholder untuk main_test.go
-	m := http.NewServeMux()
-	return m
 }
