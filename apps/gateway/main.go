@@ -27,6 +27,7 @@ type Message struct {
 
 var (
 	dbStore  *ledger.PgStore
+	dbPool   *pgxpool.Pool // Variabel baru untuk autentikasi API Key
 	provider providers.Provider
 )
 
@@ -37,8 +38,8 @@ func main() {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 	dbStore = ledger.NewPgStore(pool)
+	dbPool = pool // Simpan pool untuk dipakai oleh authMiddleware
 
-	// Gunakan simulasi provider
 	provider = providers.NewSimulatedProvider()
 
 	mux := newMux()
@@ -49,11 +50,15 @@ func main() {
 
 func newMux() http.Handler {
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("/v1/chat/completions", handleChatCompletions)
+
+	// BUNGKUS DENGAN authMiddleware
+	mux.HandleFunc("/v1/chat/completions", authMiddleware(handleChatCompletions))
+
 	return mux
 }
 
@@ -69,11 +74,18 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agentID := ledger.AccountID("agent_1")
-	holdAcc := ledger.AccountID("hold_agent_1")
+	// AMBIL AGENT ID DARI CONTEXT (Hasil validasi authMiddleware)
+	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
+	if !ok || agentIDStr == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	agentID := ledger.AccountID(agentIDStr)
+	holdAcc := ledger.AccountID("hold_" + agentIDStr)
+
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
-	// 1. Cek Policy
 	policy := policyengine.Policy{
 		Status:            "active",
 		MaxCostPerRequest: ledger.MicroUSD(5000),
@@ -87,7 +99,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Reserve (Hold)
 	requestID := fmt.Sprintf("req_%d", time.Now().UnixNano())
 	ctx := r.Context()
 
@@ -119,7 +130,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. STREAMING: Setup HTTP Flusher
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -134,18 +144,15 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	var totalTokens int64 = 0
 
-	// Loop untuk mengirim data ke client
 	for {
 		select {
 		case chunk, ok := <-chunks:
 			if !ok {
-				// Stream selesai
 				goto Settle
 			}
-			// Format SSE
 			fmt.Fprintf(w, "data: {\"text\": \"%s\"}\n\n", chunk.Text)
 			flusher.Flush()
-			totalTokens += 2 // Simulasi hitungan token per kata
+			totalTokens += 2
 
 		case err := <-errs:
 			if err != nil {
@@ -154,17 +161,15 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			goto Settle
 
 		case <-ctx.Done():
-			// CLIENT DISCONNECT! Hentikan stream dan settle sesuai token terpakai
 			log.Printf("Client disconnected. Settling for %d tokens.", totalTokens)
 			goto Settle
 		}
 	}
 
 Settle:
-	// 4. Settle berdasarkan token yang benar-benar terkirim
 	actualCost := ledger.MicroUSD(totalTokens * 10)
 	if actualCost > estimatedCost {
-		actualCost = estimatedCost // Jangan pernah tagih melebihi hold
+		actualCost = estimatedCost
 	}
 
 	err = dbStore.Do(context.Background(), func(tx ledger.Tx) error {
