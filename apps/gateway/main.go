@@ -6,11 +6,16 @@ import (
 )
 
 func main() {
-	fmt.Println("Gateway is not implemented yet (Stage 3).")
+	fmt.Println("Gateway is running on :8080")
+	mux := newMux()
+	http.ListenAndServe(":8080", mux)
 }
 
-// newMux mengembalikan http.Handler agar sesuai dengan ekspektasi main_test.go
 func newMux() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	return mux
 }
