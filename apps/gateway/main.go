@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pikcui/Walawe/packages/ledger"
 	policyengine "github.com/pikcui/Walawe/packages/policy-engine"
+	"github.com/pikcui/Walawe/packages/providers"
 )
 
 type ChatRequest struct {
@@ -24,18 +25,9 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-type ChatResponse struct {
-	ID      string   `json:"id"`
-	Object  string   `json:"object"`
-	Choices []Choice `json:"choices"`
-}
-
-type Choice struct {
-	Message Message `json:"message"`
-}
-
 var (
-	dbStore *ledger.PgStore
+	dbStore  *ledger.PgStore
+	provider providers.Provider
 )
 
 func main() {
@@ -46,8 +38,10 @@ func main() {
 	}
 	dbStore = ledger.NewPgStore(pool)
 
-	mux := newMux()
+	// Gunakan simulasi provider
+	provider = providers.NewSimulatedProvider()
 
+	mux := newMux()
 	port := ":8080"
 	fmt.Printf("Walawe Gateway running on %s\n", port)
 	log.Fatal(http.ListenAndServe(port, mux))
@@ -55,14 +49,11 @@ func main() {
 
 func newMux() http.Handler {
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
-
 	mux.HandleFunc("/v1/chat/completions", handleChatCompletions)
-
 	return mux
 }
 
@@ -82,22 +73,21 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	holdAcc := ledger.AccountID("hold_agent_1")
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
+	// 1. Cek Policy
 	policy := policyengine.Policy{
 		Status:            "active",
 		MaxCostPerRequest: ledger.MicroUSD(5000),
-		MaxCostPerDay:     ledger.MicroUSD(50000),
 		AllowedModels:     []string{"gpt-4"},
 	}
 	usage := policyengine.Usage{SpentToday: 0, SpentMonth: 0}
 	policyReq := policyengine.Request{Model: req.Model, MaxTokens: req.MaxTokens, EstimatedCost: estimatedCost}
 
-	decision := policyengine.Evaluate(policyReq, usage, policy)
-	if !decision.Allowed {
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]string{"error": decision.Reason})
+	if !policyengine.Evaluate(policyReq, usage, policy).Allowed {
+		http.Error(w, "Policy denied", http.StatusForbidden)
 		return
 	}
 
+	// 2. Reserve (Hold)
 	requestID := fmt.Sprintf("req_%d", time.Now().UnixNano())
 	ctx := r.Context()
 
@@ -125,15 +115,59 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Ledger reserve failed: %v", err), http.StatusPaymentRequired)
+		http.Error(w, "Insufficient balance", http.StatusPaymentRequired)
 		return
 	}
 
-	time.Sleep(1 * time.Second)
-	actualTokens := int64(10)
-	actualCost := ledger.MicroUSD(actualTokens * 10)
+	// 3. STREAMING: Setup HTTP Flusher
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 
-	err = dbStore.Do(ctx, func(tx ledger.Tx) error {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	chunks, errs := provider.StreamChat(ctx, req.Model, req.Messages[0].Content)
+
+	var totalTokens int64 = 0
+
+	// Loop untuk mengirim data ke client
+	for {
+		select {
+		case chunk, ok := <-chunks:
+			if !ok {
+				// Stream selesai
+				goto Settle
+			}
+			// Format SSE
+			fmt.Fprintf(w, "data: {\"text\": \"%s\"}\n\n", chunk.Text)
+			flusher.Flush()
+			totalTokens += 2 // Simulasi hitungan token per kata
+
+		case err := <-errs:
+			if err != nil {
+				log.Printf("Stream error: %v", err)
+			}
+			goto Settle
+
+		case <-ctx.Done():
+			// CLIENT DISCONNECT! Hentikan stream dan settle sesuai token terpakai
+			log.Printf("Client disconnected. Settling for %d tokens.", totalTokens)
+			goto Settle
+		}
+	}
+
+Settle:
+	// 4. Settle berdasarkan token yang benar-benar terkirim
+	actualCost := ledger.MicroUSD(totalTokens * 10)
+	if actualCost > estimatedCost {
+		actualCost = estimatedCost // Jangan pernah tagih melebihi hold
+	}
+
+	err = dbStore.Do(context.Background(), func(tx ledger.Tx) error {
 		h, found, err := tx.HoldByRequestID(requestID)
 		if err != nil || !found {
 			return fmt.Errorf("hold not found")
@@ -163,13 +197,4 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("WARNING: Settle failed for %s: %v", requestID, err)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ChatResponse{
-		ID:     requestID,
-		Object: "chat.completion",
-		Choices: []Choice{
-			{Message: Message{Role: "assistant", Content: "Halo! Ini adalah respons simulasi dari Walawe Gateway."}},
-		},
-	})
 }
