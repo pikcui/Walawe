@@ -61,8 +61,8 @@ resp = client.chat.completions.create(
 Run locally (available once stage 0 of the roadmap lands):
 
 ```bash
-git clone https://github.com/<your-org>/walawe.git
-cd walawe
+git clone https://github.com/pikcui/Walawe.git
+cd Walawe
 cp .env.example .env
 docker compose up
 ```
