@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /apps/gateway
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /packages/ledger
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /packages/policy-engine
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /packages/providers
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /apps/gateway
+    schedule:
+      interval: weekly

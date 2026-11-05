@@ -1,0 +1,56 @@
+# Local development stack. Not hardened for production.
+# Usage: cp .env.example .env && docker compose up
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: walawe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env and set POSTGRES_PASSWORD}
+      POSTGRES_DB: walawe
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U walawe -d walawe"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js"]
+    ports:
+      - "127.0.0.1:4222:4222"
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://walawe:${POSTGRES_PASSWORD}@postgres:5432/walawe?sslmode=disable"
+      - "up"
+
+  gateway:
+    build:
+      context: ./apps/gateway
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      WALAWE_GATEWAY_ADDR: ":8080"
+      WALAWE_LOG_LEVEL: ${WALAWE_LOG_LEVEL:-info}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  pgdata:

@@ -1,0 +1,7 @@
+# Sensitive modules need review from a code owner (see AGENTS.md section 5).
+*                          @pikcui
+/packages/ledger/          @pikcui
+/packages/policy-engine/   @pikcui
+/packages/contracts/       @pikcui
+/migrations/               @pikcui
+/.github/                  @pikcui

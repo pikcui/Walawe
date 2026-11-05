@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+bin/
+dist/
+coverage.out
+*.test
+node_modules/
+.DS_Store
+.idea/
+.vscode/
+go.work.sum
