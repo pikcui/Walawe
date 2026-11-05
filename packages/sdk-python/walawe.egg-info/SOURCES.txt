@@ -1,0 +1,7 @@
+setup.py
+walawe/__init__.py
+walawe/client.py
+walawe.egg-info/PKG-INFO
+walawe.egg-info/SOURCES.txt
+walawe.egg-info/dependency_links.txt
+walawe.egg-info/top_level.txt
