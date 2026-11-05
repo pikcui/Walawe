@@ -90,3 +90,7 @@ We appreciate responsible disclosure and will credit reporters in the release no
 ## Important notice
 
 This software handles monetary value. Users and operators are responsible for legal compliance in their own jurisdictions. The project is provided as is, under its license, without warranty.
+
+## Release Checklist
+- [x] Rate limiting implemented (5 req/sec per IP)
+- [x] Hash-chained audit logging enabled

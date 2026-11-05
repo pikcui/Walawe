@@ -48,13 +48,11 @@ func main() {
 	log.Fatal(http.ListenAndServe(port, mux))
 }
 
-// corsMiddleware mengizinkan Next.js (port 3000) untuk mengambil data
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -71,10 +69,10 @@ func newMux() http.Handler {
 		w.Write([]byte("ok"))
 	})
 
-	mux.HandleFunc("/v1/chat/completions", authMiddleware(handleChatCompletions))
+	// Pasang Rate Limiter
+	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/admin/balance", handleGetBalance)
 
-	// Bungkus mux dengan CORS Middleware
 	return corsMiddleware(mux)
 }
 
@@ -95,6 +93,9 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// TULIS AUDIT LOG
+	writeAuditLog("chat_completion_request", agentIDStr)
 
 	agentID := ledger.AccountID(agentIDStr)
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
