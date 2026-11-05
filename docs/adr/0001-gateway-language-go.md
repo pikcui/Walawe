@@ -1,6 +1,6 @@
 # 0001. Use Go for the gateway and ledger
 
-- Status: Proposed (needs maintainer acceptance)
+- Status: Accepted
 - Date: 2026-11-05
 
 ## Context
