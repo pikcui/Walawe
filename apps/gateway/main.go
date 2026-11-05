@@ -27,7 +27,7 @@ type Message struct {
 
 var (
 	dbStore  *ledger.PgStore
-	dbPool   *pgxpool.Pool // Variabel baru untuk autentikasi API Key
+	dbPool   *pgxpool.Pool
 	provider providers.Provider
 )
 
@@ -38,7 +38,7 @@ func main() {
 		log.Fatalf("Unable to connect to database: %v", err)
 	}
 	dbStore = ledger.NewPgStore(pool)
-	dbPool = pool // Simpan pool untuk dipakai oleh authMiddleware
+	dbPool = pool
 
 	provider = providers.NewSimulatedProvider()
 
@@ -46,6 +46,21 @@ func main() {
 	port := ":8080"
 	fmt.Printf("Walawe Gateway running on %s\n", port)
 	log.Fatal(http.ListenAndServe(port, mux))
+}
+
+// corsMiddleware mengizinkan Next.js (port 3000) untuk mengambil data
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func newMux() http.Handler {
@@ -56,10 +71,11 @@ func newMux() http.Handler {
 		w.Write([]byte("ok"))
 	})
 
-	// BUNGKUS DENGAN authMiddleware
 	mux.HandleFunc("/v1/chat/completions", authMiddleware(handleChatCompletions))
+	mux.HandleFunc("/admin/balance", handleGetBalance)
 
-	return mux
+	// Bungkus mux dengan CORS Middleware
+	return corsMiddleware(mux)
 }
 
 func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +90,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// AMBIL AGENT ID DARI CONTEXT (Hasil validasi authMiddleware)
 	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
 	if !ok || agentIDStr == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -83,7 +98,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	agentID := ledger.AccountID(agentIDStr)
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
-
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
 	policy := policyengine.Policy{
@@ -141,7 +155,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	chunks, errs := provider.StreamChat(ctx, req.Model, req.Messages[0].Content)
-
 	var totalTokens int64 = 0
 
 	for {
@@ -202,4 +215,21 @@ Settle:
 	if err != nil {
 		log.Printf("WARNING: Settle failed for %s: %v", requestID, err)
 	}
+}
+
+func handleGetBalance(w http.ResponseWriter, r *http.Request) {
+	var balance int64
+	agentUUID := "11111111-1111-1111-1111-111111111111"
+
+	err := dbPool.QueryRow(r.Context(), "SELECT balance FROM accounts WHERE id = $1", agentUUID).Scan(&balance)
+	if err != nil {
+		http.Error(w, "Failed to get balance", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"agent_id":          agentUUID,
+		"balance_micro_usd": balance,
+	})
 }
