@@ -10,6 +10,7 @@ require (
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/pikcui/Walawe/packages/ledger v0.0.0
 	github.com/pikcui/Walawe/packages/policy-engine v0.0.0
+	github.com/pikcui/Walawe/packages/providers v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -20,3 +21,5 @@ require (
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 )
+
+replace github.com/pikcui/Walawe/packages/providers => ../../packages/providers
