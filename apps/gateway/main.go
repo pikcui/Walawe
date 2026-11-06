@@ -27,8 +27,9 @@ type Message struct {
 }
 
 var (
-	dbStore *ledger.PgStore
-	dbPool  *pgxpool.Pool
+	dbStore  *ledger.PgStore
+	dbPool   *pgxpool.Pool
+	detector *AnomalyDetector
 )
 
 func main() {
@@ -43,6 +44,7 @@ func main() {
 	}
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
+	detector = NewAnomalyDetector(pool)
 
 	mux := newMux()
 	port := ":8080"
@@ -71,14 +73,10 @@ func newMux() http.Handler {
 		w.Write([]byte("ok"))
 	})
 
-	// Agent Routes
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0xYourSmartContractAddress")(handlePremiumData))))
 
-	// Admin Auth Route
 	mux.HandleFunc("/admin/login", handleAdminLogin)
-
-	// Protected Admin Routes (JWT)
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
 	mux.HandleFunc("/admin/approvals/resolve", AdminAuthMiddleware(handleResolveApproval))
@@ -104,13 +102,28 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Cek Anomali (Spam Detector)
+	if detector.RecordAndCheck(r.Context(), agentIDStr) {
+		http.Error(w, "Anomaly detected: Agent suspended", http.StatusForbidden)
+		return
+	}
+
 	writeAuditLog("chat_completion_request", agentIDStr)
 
 	agentID := ledger.AccountID(agentIDStr)
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
-	// 1. Ambil Usage (Pengeluaran) dari Database
+	// 2. Ambil Status Asli Agen dari Database
+	var agentStatus string
+	err := dbPool.QueryRow(r.Context(), "SELECT status FROM agents WHERE id = $1::uuid", agentIDStr).Scan(&agentStatus)
+	if err != nil {
+		log.Printf("Failed to get agent status: %v", err)
+		http.Error(w, "Agent not found", http.StatusUnauthorized)
+		return
+	}
+
+	// 3. Ambil Usage (Pengeluaran) dari Database
 	usage, err := getAgentUsage(r.Context(), agentID)
 	if err != nil {
 		log.Printf("Failed to get usage: %v", err)
@@ -118,11 +131,11 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Konfigurasi Policy (Untuk testing, MaxCostPerDay kita set kecil yaitu 5000)
+	// 4. Konfigurasi Policy (Gunakan agentStatus yang asli)
 	policy := policyengine.Policy{
-		Status:            "active",
+		Status:            agentStatus, // <-- Ini sudah diperbaiki
 		MaxCostPerRequest: ledger.MicroUSD(100000),
-		MaxCostPerDay:     ledger.MicroUSD(5000), // Set kecil untuk pembuktian
+		MaxCostPerDay:     ledger.MicroUSD(5000),
 		AllowedModels:     []string{"gpt-4", "claude-3-opus-20240229"},
 		ApprovalThreshold: ledger.MicroUSD(5000),
 	}
@@ -188,7 +201,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// BYOK Logic
 	providerKey := r.Header.Get("X-Provider-Key")
 	providerName := r.Header.Get("X-Provider-Name")
 	var activeProvider providers.Provider
@@ -264,10 +276,8 @@ Settle:
 	}
 }
 
-// getAgentUsage menghitung total pengeluaran agen hari ini dan bulan ini
 func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.Usage, error) {
 	var spentToday, spentMonth int64
-
 	query := `
 		SELECT 
 			COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as spent_today,
@@ -275,12 +285,10 @@ func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.
 		FROM entries
 		WHERE debit = $1 AND ref_type IN ('reserve', 'x402_payment')
 	`
-
 	err := dbPool.QueryRow(ctx, query, string(agentID)).Scan(&spentToday, &spentMonth)
 	if err != nil {
 		return policyengine.Usage{}, err
 	}
-
 	return policyengine.Usage{
 		SpentToday: ledger.MicroUSD(spentToday),
 		SpentMonth: ledger.MicroUSD(spentMonth),
@@ -290,13 +298,11 @@ func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.
 func handleGetBalance(w http.ResponseWriter, r *http.Request) {
 	var balance int64
 	agentUUID := "11111111-1111-1111-1111-111111111111"
-
 	err := dbPool.QueryRow(r.Context(), "SELECT balance FROM accounts WHERE id = $1", agentUUID).Scan(&balance)
 	if err != nil {
 		http.Error(w, "Failed to get balance", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"agent_id":          agentUUID,
@@ -311,7 +317,6 @@ func handleGetApprovals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-
 	var approvals []map[string]interface{}
 	for rows.Next() {
 		var id, agentID, model, status string
@@ -324,7 +329,6 @@ func handleGetApprovals(w http.ResponseWriter, r *http.Request) {
 			"id": id, "agent_id": agentID, "model": model, "cost": cost, "status": status, "created_at": createdAt,
 		})
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(approvals)
 }
@@ -334,7 +338,6 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	var payload struct {
 		ID     string `json:"id"`
 		Action string `json:"action"`
@@ -343,25 +346,21 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-
 	status := "approved"
 	if payload.Action == "reject" {
 		status = "rejected"
 	}
-
 	_, err := dbPool.Exec(r.Context(), "UPDATE approval_requests SET status = $1, resolved_at = now() WHERE id = $2", status, payload.ID)
 	if err != nil {
 		http.Error(w, "Failed to update approval", http.StatusInternalServerError)
 		return
 	}
-
 	var webhookURL string
 	err = dbPool.QueryRow(r.Context(), `
 		SELECT a.webhook_url 
 		FROM agents a 
 		JOIN approval_requests ar ON a.id = ar.agent_id 
 		WHERE ar.id = $1`, payload.ID).Scan(&webhookURL)
-
 	if err == nil && webhookURL != "" {
 		sendWebhook(webhookURL, map[string]interface{}{
 			"event":      "approval_resolved",
@@ -371,7 +370,6 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		log.Printf("Warning: could not find webhook_url for approval %s: %v", payload.ID, err)
 	}
-
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Success"))
 }
