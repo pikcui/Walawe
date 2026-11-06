@@ -1,6 +1,6 @@
 module github.com/pikcui/Walawe/packages/crypto
 
-go 1.27.3
+go 1.23.0
 
 require github.com/ethereum/go-ethereum v1.13.14
 

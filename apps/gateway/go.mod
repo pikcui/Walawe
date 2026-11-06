@@ -1,6 +1,6 @@
 module github.com/pikcui/Walawe/apps/gateway
 
-go 1.27.3
+go 1.23.0
 
 replace github.com/pikcui/Walawe/packages/ledger => ../../packages/ledger
 
