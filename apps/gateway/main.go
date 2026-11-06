@@ -26,9 +26,8 @@ type Message struct {
 }
 
 var (
-	dbStore  *ledger.PgStore
-	dbPool   *pgxpool.Pool
-	provider providers.Provider
+	dbStore *ledger.PgStore
+	dbPool  *pgxpool.Pool
 )
 
 func main() {
@@ -40,8 +39,6 @@ func main() {
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
 
-	provider = providers.NewSimulatedProvider()
-
 	mux := newMux()
 	port := ":8080"
 	fmt.Printf("Walawe Gateway running on %s\n", port)
@@ -52,7 +49,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-PAYMENT, X-REQUIRE-APPROVAL")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-PAYMENT, X-REQUIRE-APPROVAL, X-Provider-Key")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -71,10 +68,10 @@ func newMux() http.Handler {
 
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/admin/balance", handleGetBalance)
-
-	// Endpoint baru untuk Human Approval
 	mux.HandleFunc("/admin/approvals", handleGetApprovals)
 	mux.HandleFunc("/admin/approvals/resolve", handleResolveApproval)
+
+	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0xYourSmartContractAddress")(handlePremiumData))))
 
 	return corsMiddleware(mux)
 }
@@ -103,7 +100,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
-	// Ambil policy (Threshold di 5000 = $0.005)
 	policy := policyengine.Policy{
 		Status:            "active",
 		MaxCostPerRequest: ledger.MicroUSD(100000),
@@ -116,7 +112,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	decision := policyengine.Evaluate(policyReq, usage, policy)
 	if !decision.Allowed {
 		if decision.Reason == "require_approval" {
-			// Simpan ke database
 			_, err := dbPool.Exec(r.Context(), `
 				INSERT INTO approval_requests (agent_id, model, estimated_cost_micro_usd)
 				VALUES ($1, $2, $3)
@@ -174,7 +169,17 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chunks, errs := provider.StreamChat(ctx, req.Model, req.Messages[0].Content)
+	// BYOK Logic
+	providerKey := r.Header.Get("X-Provider-Key")
+	var activeProvider providers.Provider
+
+	if providerKey != "" {
+		activeProvider = providers.NewOpenAIProvider(providerKey)
+	} else {
+		activeProvider = providers.NewSimulatedProvider()
+	}
+
+	chunks, errs := activeProvider.StreamChat(ctx, req.Model, req.Messages[0].Content)
 	var totalTokens int64 = 0
 
 	for {
@@ -307,4 +312,11 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Success"))
+}
+
+func handlePremiumData(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"data": "Ini adalah data rahasia yang hanya bisa diakses setelah membayar via x402!",
+	})
 }
