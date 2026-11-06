@@ -1,96 +1,31 @@
-# Walawe Security Policy
+# Security Policy
 
-## Reporting a vulnerability
+## Supported Versions
 
-**Please do not open a public issue for security vulnerabilities.**
+| Version | Supported          |
+| ------- | ------------------ |
+| 2.x.x   | :white_check_mark: |
+| 1.x.x   | :x:                |
 
-Use GitHub's **Private Vulnerability Reporting**: go to the *Security* tab of this repository and choose *Report a vulnerability*.
+## Threat Model
 
-Please include: a description, reproduction steps, estimated impact, and affected versions.
+Walawe handles monetary value and autonomous AI agents. We assume the following threat model:
+1. **Compromised Agents:** An agent's API key or session key is stolen. *Mitigation: Scoped session keys with expiration, on-chain budget limits, and rate limiting.*
+2. **Spamming Agents:** An agent tries to DDoS the gateway. *Mitigation: Anomaly detection suspends agents making > 20 requests/minute.*
+3. **Provider Abuse:** An agent attempts to use unauthorized models. *Mitigation: Deterministic Policy Engine allowlists.*
+4. **Replay Attacks:** An attacker replays a valid x402 payment signature. *Mitigation: Idempotency keys based on the cryptographic signature.*
 
-Response commitments:
-- Acknowledgement within 3 business days
-- Initial assessment within 7 days
-- Fix and coordinated disclosure, generally within 90 days, faster for critical issues
+## Security Controls (v2)
 
-We appreciate responsible disclosure and will credit reporters in the release notes if they wish.
+- **Double-Entry Ledger:** All money movement is tracked as balanced debits and credits. Balances are never updated directly.
+- **Deterministic Policies:** Spending rules (daily/monthly limits, allowlists) are enforced by Go code, not LLMs.
+- **Human Approvals:** High-value transactions require manual approval via the Admin Dashboard.
+- **Anomaly Detection:** In-memory tracking of request timestamps to auto-suspend spamming agents.
+- **Smart Contract Security:** ERC-4337 `validateUserOp` uses OpenZeppelin's `ECDSA.recover` to verify cryptographic signatures on-chain.
+- **Hash-Chained Audit Log:** Every spend is recorded in an append-only log where each entry's hash depends on the previous one.
+- **Docker Secrets:** Sensitive credentials (DB password, JWT secret) are passed via `.env` files, never hardcoded in Dockerfiles.
+- **Admin JWT Auth:** Dashboard is protected by JSON Web Tokens.
 
-## Supported versions
+## Reporting a Vulnerability
 
-| Version | Status |
-|---|---|
-| `main` and the latest minor release | Receives security fixes |
-| Older releases | Not supported |
-
-## Threat model
-
-| Threat | Mitigation |
-|---|---|
-| Agent hijacked (prompt injection) and drains the balance | Deterministic policy engine outside the LLM, per-request and daily limits, human approval above a threshold, kill switch |
-| API key leak | Only the hash is stored, visible prefix, secret scanning in CI, instant rotation and revocation, per-key limits |
-| Provider key theft | Envelope encryption with KMS, never in logs, least-privilege access |
-| Double charge or race condition | Idempotency keys, serializable transactions on hold and settle, property tests |
-| SSRF through payment destinations or tools | Egress allowlist, block internal addresses and cloud metadata endpoints |
-| Prompt content leakage | Not stored by default, log redaction, TLS in transit, encryption at rest |
-| Cross-tenant access | Tenant filter on every query, automated authorization tests |
-| Supply chain attack | Pinned dependencies, SBOM, signed releases, Dependabot |
-| Audit log tampering | Append-only, hash chaining, periodic export to separate storage |
-| DoS and abuse | Rate limits per key and per IP, per-organization quotas |
-| Crypto fund theft (v1) | Non-custodial, scoped session keys, independent smart contract audit |
-
-## Required controls
-
-### Application
-- TLS for all external communication. mTLS between internal services.
-- Fail closed: if the ledger or policy cannot be checked, the request is rejected.
-- All money values are integer micro-USD. Linters and tests prevent floats for money.
-- Strict input validation on every endpoint and request size limits.
-- No prompt or response content in logs or the database by default.
-
-### Keys and secrets
-- Secrets come only from a secret manager or environment, never from the repo.
-- Provider secrets are encrypted (envelope encryption) with KMS.
-- API keys: shown once, stored as a hash, revocable instantly.
-- The owner's master key and private keys for crypto funds **never** touch Walawe servers.
-- Session keys have limited permissions: spending cap, destination allowlist, short expiry.
-
-### Access and operations
-- 2FA is mandatory for organization admins and repository maintainers.
-- Least privilege for database, cloud, and CI access.
-- Audit log for all admin actions, policy changes, and key creation or revocation.
-- Encrypted backups and regular restore tests.
-
-### Repository and supply chain
-- Branch protection on `main`: required reviews, required green CI, no direct pushes.
-- `CODEOWNERS` for sensitive modules (ledger, policy-engine, keys, contracts).
-- Secret scanning and push protection enabled.
-- Pinned dependencies. Dependabot or Renovate enabled.
-- Signed releases (cosign) with an SBOM.
-- Static analysis (for example CodeQL) and fuzzing of the request parser and policy evaluator.
-
-### Smart contracts (v1)
-- Independent audit before use with real funds.
-- Conservative value caps at initial launch.
-- Emergency pause mechanism with clear governance.
-- Contract source verified on a block explorer.
-
-## Pre-release checklist
-
-- [ ] Threat model reviewed and updated
-- [ ] Independent pentest or security review of the money path
-- [ ] Secret scanning clean, no credentials in git history
-- [ ] Cross-tenant authorization tests pass on all endpoints
-- [ ] Ledger property and concurrency tests pass
-- [ ] Rate limits and quotas active
-- [ ] Kill switch tested end to end
-- [ ] Backup and restore procedure tested
-- [ ] Private vulnerability reporting enabled on the repository
-- [ ] Legal review of how funds are handled is complete
-
-## Important notice
-
-This software handles monetary value. Users and operators are responsible for legal compliance in their own jurisdictions. The project is provided as is, under its license, without warranty.
-
-## Release Checklist
-- [x] Rate limiting implemented (5 req/sec per IP)
-- [x] Hash-chained audit logging enabled
+Please **do not** open a public issue. Use GitHub's private vulnerability reporting.
