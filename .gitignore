@@ -22,6 +22,5 @@ node_modules/
 out/
 cache/
 lib/
-packages/contracts/lib/
 packages/contracts/out/
 packages/contracts/cache/

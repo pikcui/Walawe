@@ -52,7 +52,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-PAYMENT")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -69,11 +69,20 @@ func newMux() http.Handler {
 		w.Write([]byte("ok"))
 	})
 
-	// Pasang Rate Limiter
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/admin/balance", handleGetBalance)
 
+	// Endpoint baru: Butuh pembayaran 1000 micro-USD (0.001 USD)
+	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(X402Middleware(1000, "0xYourSmartContractAddress")(handlePremiumData)))
+
 	return corsMiddleware(mux)
+}
+
+func handlePremiumData(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"data": "Ini adalah data rahasia yang hanya bisa diakses setelah membayar via x402!",
+	})
 }
 
 func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +103,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TULIS AUDIT LOG
 	writeAuditLog("chat_completion_request", agentIDStr)
 
 	agentID := ledger.AccountID(agentIDStr)
