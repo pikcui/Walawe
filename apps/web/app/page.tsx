@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Icons = {
   Wallet: () => (
@@ -21,6 +22,7 @@ const Icons = {
 export default function Home() {
   const [balance, setBalance] = useState<number | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -34,24 +36,34 @@ export default function Home() {
 
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
-      const [balRes, appRes] = await Promise.all([
+      const [balRes, appRes, usageRes] = await Promise.all([
         fetch('http://127.0.0.1:8080/admin/balance', { headers }),
-        fetch('http://127.0.0.1:8080/admin/approvals', { headers })
+        fetch('http://127.0.0.1:8080/admin/approvals', { headers }),
+        fetch('http://127.0.0.1:8080/admin/usage', { headers })
       ]);
 
-      if (balRes.status === 401 || appRes.status === 401) {
+      // Perbaikan: Cek status 401 untuk ketiga endpoint
+      if (balRes.status === 401 || appRes.status === 401 || usageRes.status === 401) {
         localStorage.removeItem('walawe_token');
         router.push('/login');
         return;
       }
 
+      // Perbaikan: Cek jika response bukan 200 OK
+      if (!balRes.ok || !appRes.ok || !usageRes.ok) {
+        throw new Error("Failed to fetch data from server");
+      }
+
       const balData = await balRes.json();
       const appData = await appRes.json();
+      const usageData = await usageRes.json();
+
       setBalance(balData.balance_micro_usd);
       setApprovals(Array.isArray(appData) ? appData : []);
+      setChartData(Array.isArray(usageData) ? usageData : []);
       setLoading(false);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch error:", err);
       setLoading(false);
     }
   };
@@ -65,7 +77,6 @@ export default function Home() {
     const token = localStorage.getItem('walawe_token');
     try {
       setApprovals((prev) => prev.filter((req) => req.id !== id));
-      
       await fetch('http://127.0.0.1:8080/admin/approvals/resolve', {
         method: 'POST',
         headers: { 
@@ -91,7 +102,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black">
       
-      {/* Navbar Minimalis */}
       <nav className="border-b border-neutral-800 bg-black/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -111,7 +121,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-12 space-y-12">
+      <main className="max-w-6xl mx-auto px-6 py-12 space-y-8">
         
         <div className={fadeIn}>
           <h1 className="text-3xl font-bold text-white tracking-tighter">Overview</h1>
@@ -150,6 +160,35 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Grafik Pengeluaran */}
+        <div className={`bg-neutral-950 rounded-2xl border border-neutral-800 p-6 ${fadeIn}`}>
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-white tracking-tight">Spending Trend (7 Days)</h2>
+            <p className="text-sm text-neutral-500 mt-1">Overview of your agent's daily spending.</p>
+          </div>
+          <div className="h-72 w-full">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                  <XAxis dataKey="date" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value / 1000000).toFixed(3)}`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(value: number) => [`$${(value / 1000000).toFixed(4)}`, 'Spent']}
+                  />
+                  <Line type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} dot={{ r: 4, fill: '#000', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
+                No spending data available for the last 7 days.
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className={`bg-neutral-950 rounded-2xl border border-neutral-800 overflow-hidden ${fadeIn}`}>
           <div className="p-6 border-b border-neutral-800 flex items-center justify-between">
             <div>
@@ -164,7 +203,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Tampilan Mobile (Kartu) */}
           <div className="md:hidden divide-y divide-neutral-800">
             {approvals.length === 0 ? (
               <div className="p-12 text-center flex flex-col items-center gap-3">
@@ -216,7 +254,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Tampilan Desktop (Tabel) */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-black text-neutral-500 text-xs uppercase tracking-wider font-medium border-b border-neutral-800">
