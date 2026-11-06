@@ -1,13 +1,22 @@
-# TODO(verify): pin base images by digest once the build is confirmed working.
-FROM golang:1.27-alpine AS build
-WORKDIR /src
-COPY go.mod ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/gateway .
+FROM golang:1.23-alpine AS builder
 
-FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /out/gateway /gateway
-USER nonroot:nonroot
+WORKDIR /app
+
+# Copy local packages
+COPY packages/ledger /app/packages/ledger
+COPY packages/policy-engine /app/packages/policy-engine
+COPY packages/providers /app/packages/providers
+COPY packages/crypto /app/packages/crypto
+
+# Copy gateway
+COPY apps/gateway /app/apps/gateway
+
+WORKDIR /app/apps/gateway
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -o /gateway
+
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /gateway .
 EXPOSE 8080
-ENTRYPOINT ["/gateway"]
+CMD ["./gateway"]

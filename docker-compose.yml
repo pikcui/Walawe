@@ -1,56 +1,40 @@
-# Local development stack. Not hardened for production.
-# Usage: cp .env.example .env && docker compose up
+version: '3.8'
+
 services:
-  postgres:
-    image: postgres:16-alpine
+  db:
+    image: postgres:15-alpine
     environment:
       POSTGRES_USER: walawe
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env and set POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: walawe_secret
       POSTGRES_DB: walawe
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U walawe -d walawe"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "127.0.0.1:6379:6379"
-
-  nats:
-    image: nats:2.10-alpine
-    command: ["-js"]
-    ports:
-      - "127.0.0.1:4222:4222"
-
-  migrate:
-    image: migrate/migrate:v4.17.1
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./migrations:/migrations:ro
-    command:
-      - "-path=/migrations"
-      - "-database=postgres://walawe:${POSTGRES_PASSWORD}@postgres:5432/walawe?sslmode=disable"
-      - "up"
+      # Ini akan otomatis menjalankan file migrasi kita saat pertama kali nyala
+      - ./migrations:/docker-entrypoint-initdb.d 
 
   gateway:
     build:
-      context: ./apps/gateway
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    environment:
-      WALAWE_GATEWAY_ADDR: ":8080"
-      WALAWE_LOG_LEVEL: ${WALAWE_LOG_LEVEL:-info}
+      context: .
+      dockerfile: apps/gateway/Dockerfile
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://walawe:walawe_secret@db:5432/walawe?sslmode=disable
+    depends_on:
+      - db
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - gateway
 
 volumes:
   pgdata:

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,7 +32,12 @@ var (
 )
 
 func main() {
-	dsn := "postgres://android@localhost:5432/walawe?sslmode=disable"
+	// Baca DATABASE_URL dari environment (untuk Docker), fallback ke localhost (untuk Termux)
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://android@localhost:5432/walawe?sslmode=disable"
+	}
+
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
@@ -304,14 +310,12 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 		status = "rejected"
 	}
 
-	// 1. Update status di database
 	_, err := dbPool.Exec(r.Context(), "UPDATE approval_requests SET status = $1, resolved_at = now() WHERE id = $2", status, payload.ID)
 	if err != nil {
 		http.Error(w, "Failed to update approval", http.StatusInternalServerError)
 		return
 	}
 
-	// 2. Ambil webhook_url dari agen yang bersangkutan
 	var webhookURL string
 	err = dbPool.QueryRow(r.Context(), `
 		SELECT a.webhook_url 
@@ -320,7 +324,6 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 		WHERE ar.id = $1`, payload.ID).Scan(&webhookURL)
 
 	if err == nil && webhookURL != "" {
-		// 3. Kirim Webhook
 		sendWebhook(webhookURL, map[string]interface{}{
 			"event":      "approval_resolved",
 			"request_id": payload.ID,
