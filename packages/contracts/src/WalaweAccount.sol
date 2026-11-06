@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.24;
 
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 // Mock IAccount interface for ERC-4337
 interface IAccount {
     function validateUserOp(
         UserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 missingAccountFunds
-    ) external view returns (uint256 validationData);
+    ) external returns (uint256 validationData);
 }
 
 struct UserOperation {
@@ -69,17 +71,16 @@ contract WalaweAccount is IAccount {
         return sessionKeys[key].active && block.timestamp < sessionKeys[key].validUntil;
     }
 
-    // ERC-4337 Core Function
+    // ERC-4337 Core Function with REAL ECDSA Verification
     function validateUserOp(
         UserOperation calldata userOp,
-        bytes32, 
-        uint256 
+        bytes32 userOpHash,
+        uint256 /* missingAccountFunds */
     ) external view override returns (uint256 validationData) {
         require(msg.sender == entryPoint, "Caller must be EntryPoint");
 
-        // 1. Verify Signature (Simplified for mock)
-        // Asumsi: signature berisi 20-byte address yang di-pack
-        address signer = address(bytes20(userOp.signature));
+        // 1. Verify Signature using OpenZeppelin ECDSA
+        address signer = ECDSA.recover(userOpHash, userOp.signature);
         
         // 2. Check if signer is owner (Master Key)
         if (signer == owner) {
