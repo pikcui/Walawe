@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
+
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +16,7 @@ export default function Login() {
     setError('');
 
     try {
-      const res = await fetch('http://127.0.0.1:8080/admin/login', {
+      const res = await fetch(`${API_URL}/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -26,7 +28,7 @@ export default function Login() {
 
       const data = await res.json();
       localStorage.setItem('walawe_token', data.token);
-      router.push('/'); // Redirect ke Dashboard
+      router.push('/');
     } catch (err) {
       setError('Login failed. Please check your credentials.');
     }

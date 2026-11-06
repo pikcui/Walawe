@@ -19,6 +19,8 @@ const Icons = {
   )
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
+
 export default function Home() {
   const [balance, setBalance] = useState<number | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
@@ -37,19 +39,17 @@ export default function Home() {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       const [balRes, appRes, usageRes] = await Promise.all([
-        fetch('http://127.0.0.1:8080/admin/balance', { headers }),
-        fetch('http://127.0.0.1:8080/admin/approvals', { headers }),
-        fetch('http://127.0.0.1:8080/admin/usage', { headers })
+        fetch(`${API_URL}/admin/balance`, { headers }),
+        fetch(`${API_URL}/admin/approvals`, { headers }),
+        fetch(`${API_URL}/admin/usage`, { headers })
       ]);
 
-      // Perbaikan: Cek status 401 untuk ketiga endpoint
       if (balRes.status === 401 || appRes.status === 401 || usageRes.status === 401) {
         localStorage.removeItem('walawe_token');
         router.push('/login');
         return;
       }
 
-      // Perbaikan: Cek jika response bukan 200 OK
       if (!balRes.ok || !appRes.ok || !usageRes.ok) {
         throw new Error("Failed to fetch data from server");
       }
@@ -77,7 +77,7 @@ export default function Home() {
     const token = localStorage.getItem('walawe_token');
     try {
       setApprovals((prev) => prev.filter((req) => req.id !== id));
-      await fetch('http://127.0.0.1:8080/admin/approvals/resolve', {
+      await fetch(`${API_URL}/admin/approvals/resolve`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -160,7 +160,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Grafik Pengeluaran */}
         <div className={`bg-neutral-950 rounded-2xl border border-neutral-800 p-6 ${fadeIn}`}>
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-white tracking-tight">Spending Trend (7 Days)</h2>
