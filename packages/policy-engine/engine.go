@@ -26,12 +26,17 @@ func Evaluate(req Request, usage Usage, policy Policy) Decision {
 		return Decision{Allowed: false, Reason: "per_request_limit_exceeded"}
 	}
 
-	// 4. Cek Limit Harian
+	// 4. Cek Approval Threshold (Persetujuan Manusia)
+	if policy.ApprovalThreshold > 0 && req.EstimatedCost > policy.ApprovalThreshold {
+		return Decision{Allowed: false, Reason: "require_approval"}
+	}
+
+	// 5. Cek Limit Harian
 	if policy.MaxCostPerDay > 0 && usage.SpentToday+req.EstimatedCost > policy.MaxCostPerDay {
 		return Decision{Allowed: false, Reason: "daily_limit_exceeded"}
 	}
 
-	// 5. Cek Limit Bulanan
+	// 6. Cek Limit Bulanan
 	if policy.MaxCostPerMonth > 0 && usage.SpentMonth+req.EstimatedCost > policy.MaxCostPerMonth {
 		return Decision{Allowed: false, Reason: "monthly_limit_exceeded"}
 	}

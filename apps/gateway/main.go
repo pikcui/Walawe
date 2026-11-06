@@ -52,7 +52,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-PAYMENT")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-PAYMENT, X-REQUIRE-APPROVAL")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -72,17 +72,7 @@ func newMux() http.Handler {
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/admin/balance", handleGetBalance)
 
-	// Endpoint Premium: Rate Limit -> Auth (Dapatkan agentID) -> X402 (Potong Saldo) -> Handler
-	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0xYourSmartContractAddress")(handlePremiumData))))
-
 	return corsMiddleware(mux)
-}
-
-func handlePremiumData(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"data": "Ini adalah data rahasia yang hanya bisa diakses setelah membayar via x402!",
-	})
 }
 
 func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -109,16 +99,33 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
+	// Ambil policy (Untuk demo, kita set threshold approval di 5000 = $0.005)
 	policy := policyengine.Policy{
 		Status:            "active",
-		MaxCostPerRequest: ledger.MicroUSD(5000),
+		MaxCostPerRequest: ledger.MicroUSD(100000),
 		AllowedModels:     []string{"gpt-4"},
+		ApprovalThreshold: ledger.MicroUSD(5000),
 	}
 	usage := policyengine.Usage{SpentToday: 0, SpentMonth: 0}
 	policyReq := policyengine.Request{Model: req.Model, MaxTokens: req.MaxTokens, EstimatedCost: estimatedCost}
 
-	if !policyengine.Evaluate(policyReq, usage, policy).Allowed {
-		http.Error(w, "Policy denied", http.StatusForbidden)
+	decision := policyengine.Evaluate(policyReq, usage, policy)
+	if !decision.Allowed {
+		if decision.Reason == "require_approval" {
+			// Simpan ke database
+			_, err := dbPool.Exec(r.Context(), `
+				INSERT INTO approval_requests (agent_id, model, estimated_cost_micro_usd)
+				VALUES ($1, $2, $3)
+			`, agentIDStr, req.Model, int64(estimatedCost))
+			if err != nil {
+				log.Printf("Failed to save approval request: %v", err)
+			}
+
+			w.Header().Set("X-REQUIRE-APPROVAL", "true")
+			http.Error(w, "Requires human approval", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Policy denied: "+decision.Reason, http.StatusForbidden)
 		return
 	}
 

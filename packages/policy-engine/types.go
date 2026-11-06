@@ -28,4 +28,5 @@ type Policy struct {
 	MaxCostPerMonth   ledger.MicroUSD
 	AllowedModels     []string
 	Status            string
+	ApprovalThreshold ledger.MicroUSD // <-- Tambahan baru
 }
