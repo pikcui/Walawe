@@ -110,24 +110,33 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
+	// 1. Ambil Usage (Pengeluaran) dari Database
+	usage, err := getAgentUsage(r.Context(), agentID)
+	if err != nil {
+		log.Printf("Failed to get usage: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Konfigurasi Policy (Untuk testing, MaxCostPerDay kita set kecil yaitu 5000)
 	policy := policyengine.Policy{
 		Status:            "active",
 		MaxCostPerRequest: ledger.MicroUSD(100000),
-		AllowedModels:     []string{"gpt-4", "claude-3-opus-20240229"}, // Support both models
+		MaxCostPerDay:     ledger.MicroUSD(5000), // Set kecil untuk pembuktian
+		AllowedModels:     []string{"gpt-4", "claude-3-opus-20240229"},
 		ApprovalThreshold: ledger.MicroUSD(5000),
 	}
-	usage := policyengine.Usage{SpentToday: 0, SpentMonth: 0}
 	policyReq := policyengine.Request{Model: req.Model, MaxTokens: req.MaxTokens, EstimatedCost: estimatedCost}
 
 	decision := policyengine.Evaluate(policyReq, usage, policy)
 	if !decision.Allowed {
 		if decision.Reason == "require_approval" {
-			_, err := dbPool.Exec(r.Context(), `
+			_, dbErr := dbPool.Exec(r.Context(), `
 				INSERT INTO approval_requests (agent_id, model, estimated_cost_micro_usd)
 				VALUES ($1, $2, $3)
 			`, agentIDStr, req.Model, int64(estimatedCost))
-			if err != nil {
-				log.Printf("Failed to save approval request: %v", err)
+			if dbErr != nil {
+				log.Printf("Failed to save approval request: %v", dbErr)
 			}
 
 			w.Header().Set("X-REQUIRE-APPROVAL", "true")
@@ -141,7 +150,7 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	requestID := fmt.Sprintf("req_%d", time.Now().UnixNano())
 	ctx := r.Context()
 
-	err := dbStore.Do(ctx, func(tx ledger.Tx) error {
+	err = dbStore.Do(ctx, func(tx ledger.Tx) error {
 		h := ledger.Hold{
 			RequestID:     requestID,
 			CreditAccount: agentID,
@@ -179,7 +188,7 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// BYOK Logic (Multi-Provider Selection)
+	// BYOK Logic
 	providerKey := r.Header.Get("X-Provider-Key")
 	providerName := r.Header.Get("X-Provider-Name")
 	var activeProvider providers.Provider
@@ -205,9 +214,9 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 			totalTokens += 2
 
-		case err := <-errs:
-			if err != nil {
-				log.Printf("Stream error: %v", err)
+		case streamErr := <-errs:
+			if streamErr != nil {
+				log.Printf("Stream error: %v", streamErr)
 			}
 			goto Settle
 
@@ -253,6 +262,29 @@ Settle:
 	if err != nil {
 		log.Printf("WARNING: Settle failed for %s: %v", requestID, err)
 	}
+}
+
+// getAgentUsage menghitung total pengeluaran agen hari ini dan bulan ini
+func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.Usage, error) {
+	var spentToday, spentMonth int64
+
+	query := `
+		SELECT 
+			COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as spent_today,
+			COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as spent_month
+		FROM entries
+		WHERE debit = $1 AND ref_type IN ('reserve', 'x402_payment')
+	`
+
+	err := dbPool.QueryRow(ctx, query, string(agentID)).Scan(&spentToday, &spentMonth)
+	if err != nil {
+		return policyengine.Usage{}, err
+	}
+
+	return policyengine.Usage{
+		SpentToday: ledger.MicroUSD(spentToday),
+		SpentMonth: ledger.MicroUSD(spentMonth),
+	}, nil
 }
 
 func handleGetBalance(w http.ResponseWriter, r *http.Request) {
