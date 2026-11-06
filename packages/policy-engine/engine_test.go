@@ -56,6 +56,13 @@ func TestEvaluate(t *testing.T) {
 			policy:   Policy{Status: "active", MaxCostPerMonth: ledger.MicroUSD(5000)},
 			expected: Decision{Allowed: false, Reason: "monthly_limit_exceeded"},
 		},
+		{
+			name:     "Require approval if exceeds threshold",
+			req:      Request{Model: "gpt-4", EstimatedCost: ledger.MicroUSD(8000)},
+			usage:    Usage{SpentToday: 0, SpentMonth: 0},
+			policy:   Policy{Status: "active", ApprovalThreshold: ledger.MicroUSD(5000)},
+			expected: Decision{Allowed: false, Reason: "require_approval"},
+		},
 	}
 
 	for _, tt := range tests {
