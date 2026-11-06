@@ -24,17 +24,10 @@ Walawe gives each agent its own wallet and rules:
 
 ## Roadmap
 
-- **MVP (Completed):** Gateway, ledger, policies, dashboard, SDKs.
-- **v1 Alpha (Completed):**
-  - [x] Crypto Signature Verification (EIP-191)
-  - [x] x402 Payment Middleware
-  - [x] Human Approvals (Backend & UI)
-  - [x] Bring-Your-Own-Key (BYOK) - OpenAI & Anthropic
-  - [x] Webhooks
-  - [x] Admin JWT Authentication
-  - [x] Docker Deployment
-  - [x] ERC-4337 Smart Account Implementation
-- **v2 (Future):** RBAC, anomaly detection, multi-chain support, DeFi integrations.
+For a detailed breakdown of our future plans (including Security Hardening and True Web3 Integration), please see [ROADMAP.md](ROADMAP.md).
+
+- **MVP & v1 Alpha (Completed):** Core Gateway, Ledger, Policies, Human Approvals, x402, BYOK, Webhooks, Docker, ERC-4337 Contracts.
+- **v2 (In Progress):** Production Readiness, True On-chain Settlement, Policy Usage Aggregation.
 
 ## License
 
