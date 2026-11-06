@@ -7,16 +7,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Mengunduh forge-std otomatis
       
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
-          
-      - name: Install forge-std
-        run: |
-          cd packages/contracts
-          forge install foundry-rs/forge-std --no-commit
           
       - name: Run Forge tests
         run: |
