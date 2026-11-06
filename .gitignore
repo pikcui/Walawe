@@ -25,3 +25,7 @@ lib/
 packages/contracts/out/
 packages/contracts/cache/
 testscript/
+
+# Environment Variables
+.env
+.env.local
