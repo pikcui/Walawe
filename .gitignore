@@ -12,3 +12,10 @@ node_modules/
 go.work.sum
 go.work
 go.work.sum
+
+# Walawe specific
+audit.log
+*.log
+.next/
+node_modules/
+.env
