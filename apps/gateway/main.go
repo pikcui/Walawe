@@ -72,6 +72,10 @@ func newMux() http.Handler {
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/admin/balance", handleGetBalance)
 
+	// Endpoint baru untuk Human Approval
+	mux.HandleFunc("/admin/approvals", handleGetApprovals)
+	mux.HandleFunc("/admin/approvals/resolve", handleResolveApproval)
+
 	return corsMiddleware(mux)
 }
 
@@ -99,7 +103,7 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
-	// Ambil policy (Untuk demo, kita set threshold approval di 5000 = $0.005)
+	// Ambil policy (Threshold di 5000 = $0.005)
 	policy := policyengine.Policy{
 		Status:            "active",
 		MaxCostPerRequest: ledger.MicroUSD(100000),
@@ -248,4 +252,59 @@ func handleGetBalance(w http.ResponseWriter, r *http.Request) {
 		"agent_id":          agentUUID,
 		"balance_micro_usd": balance,
 	})
+}
+
+func handleGetApprovals(w http.ResponseWriter, r *http.Request) {
+	rows, err := dbPool.Query(r.Context(), "SELECT id, agent_id, model, estimated_cost_micro_usd, status, created_at FROM approval_requests WHERE status = 'pending' ORDER BY created_at DESC")
+	if err != nil {
+		http.Error(w, "Failed to get approvals", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var approvals []map[string]interface{}
+	for rows.Next() {
+		var id, agentID, model, status string
+		var cost int64
+		var createdAt time.Time
+		if err := rows.Scan(&id, &agentID, &model, &cost, &status, &createdAt); err != nil {
+			continue
+		}
+		approvals = append(approvals, map[string]interface{}{
+			"id": id, "agent_id": agentID, "model": model, "cost": cost, "status": status, "created_at": createdAt,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(approvals)
+}
+
+func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		ID     string `json:"id"`
+		Action string `json:"action"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	status := "approved"
+	if payload.Action == "reject" {
+		status = "rejected"
+	}
+
+	_, err := dbPool.Exec(r.Context(), "UPDATE approval_requests SET status = $1, resolved_at = now() WHERE id = $2", status, payload.ID)
+	if err != nil {
+		http.Error(w, "Failed to update approval", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Success"))
 }
