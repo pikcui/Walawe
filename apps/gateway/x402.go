@@ -6,33 +6,30 @@ import (
 	"fmt"
 	"net/http"
 
+	walawcrypto "github.com/pikcui/Walawe/packages/crypto"
 	"github.com/pikcui/Walawe/packages/ledger"
 )
 
-// X402Middleware mensimulasikan gerbang pembayaran HTTP 402 dan mencatatnya ke Ledger
 func X402Middleware(store *ledger.PgStore, priceMicroUSD int64, payToAddress string) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			paymentHeader := r.Header.Get("X-PAYMENT")
 
-			// Jika tidak ada header pembayaran, kirim 402
 			if paymentHeader == "" {
 				w.Header().Set("X-PRICE", fmt.Sprintf("%d", priceMicroUSD))
 				w.Header().Set("X-PAY-TO", payToAddress)
 				w.WriteHeader(http.StatusPaymentRequired)
-				w.Write([]byte("Payment Required: Please provide X-PAYMENT header with a valid payload."))
+				w.Write([]byte("Payment Required"))
 				return
 			}
 
-			// Ambil Agent ID dari context (karena endpoint ini wajib dilindungi authMiddleware)
 			agentIDStr, ok := r.Context().Value(agentIDKey).(string)
 			if !ok || agentIDStr == "" {
-				http.Error(w, "Unauthorized: Missing agent ID in context", http.StatusUnauthorized)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 			agentID := ledger.AccountID(agentIDStr)
 
-			// Decode payload base64
 			payloadBytes, err := base64.StdEncoding.DecodeString(paymentHeader)
 			if err != nil {
 				http.Error(w, "Invalid payment payload encoding", http.StatusBadRequest)
@@ -45,21 +42,40 @@ func X402Middleware(store *ledger.PgStore, priceMicroUSD int64, payToAddress str
 				return
 			}
 
-			// Validasi pembayaran (Mock: Pastikan ada tanda tangan)
 			sig, ok := payload["signature"].(string)
 			if !ok || sig == "" {
-				http.Error(w, "Missing signature in payment payload", http.StatusBadRequest)
+				http.Error(w, "Missing signature", http.StatusBadRequest)
+				return
+			}
+
+			// --- VERIFIKASI KRIPTOGRAFI ---
+			// Ambil wallet_address milik agen dari database
+			var expectedWallet string
+			err = dbPool.QueryRow(r.Context(), "SELECT wallet_address FROM agents WHERE id = $1", agentIDStr).Scan(&expectedWallet)
+			if err != nil || expectedWallet == "" {
+				http.Error(w, "Agent wallet not configured", http.StatusForbidden)
+				return
+			}
+
+			// Pesan yang ditandatangani (bisa berupa string apapun, misal ID transaksi)
+			message := fmt.Sprintf("Walawe x402 Payment: %d to %s", priceMicroUSD, payToAddress)
+			recoveredAddress, err := walawcrypto.VerifySignature(message, sig)
+			if err != nil {
+				http.Error(w, "Invalid signature cryptography: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			if recoveredAddress != expectedWallet {
+				http.Error(w, "Signature does not match agent's wallet", http.StatusForbidden)
 				return
 			}
 
 			// --- INTEGRASI LEDGER ---
-			// Gunakan signature sebagai Idempotency Key
-			// Jika agen mengirim ulang header yang sama, tidak akan ditagih dua kali.
 			ctx := r.Context()
 			err = store.Do(ctx, func(tx ledger.Tx) error {
 				_, err := tx.InsertEntry(ledger.Entry{
 					Debit:          agentID,
-					Credit:         "external", // Uang masuk ke provider API (external)
+					Credit:         "external",
 					Amount:         ledger.MicroUSD(priceMicroUSD),
 					RefType:        "x402_payment",
 					RefID:          payToAddress,
@@ -69,12 +85,10 @@ func X402Middleware(store *ledger.PgStore, priceMicroUSD int64, payToAddress str
 			})
 
 			if err != nil {
-				// Jika saldo tidak cukup, Ledger akan mengembalikan ErrInsufficientBalance
 				http.Error(w, "Payment failed: "+err.Error(), http.StatusPaymentRequired)
 				return
 			}
 
-			// Jika valid, lanjutkan ke handler berikutnya
 			next.ServeHTTP(w, r)
 		}
 	}
