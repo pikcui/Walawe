@@ -54,7 +54,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-PAYMENT, X-REQUIRE-APPROVAL, X-Provider-Key")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-PAYMENT, X-REQUIRE-APPROVAL, X-Provider-Key, X-Provider-Name")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -113,7 +113,7 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	policy := policyengine.Policy{
 		Status:            "active",
 		MaxCostPerRequest: ledger.MicroUSD(100000),
-		AllowedModels:     []string{"gpt-4"},
+		AllowedModels:     []string{"gpt-4", "claude-3-opus-20240229"}, // Support both models
 		ApprovalThreshold: ledger.MicroUSD(5000),
 	}
 	usage := policyengine.Usage{SpentToday: 0, SpentMonth: 0}
@@ -179,11 +179,14 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// BYOK Logic (Pemilihan Provider)
+	// BYOK Logic (Multi-Provider Selection)
 	providerKey := r.Header.Get("X-Provider-Key")
+	providerName := r.Header.Get("X-Provider-Name")
 	var activeProvider providers.Provider
 
-	if providerKey != "" {
+	if providerKey != "" && providerName == "anthropic" {
+		activeProvider = providers.NewAnthropicProvider(providerKey)
+	} else if providerKey != "" {
 		activeProvider = providers.NewOpenAIProvider(providerKey)
 	} else {
 		activeProvider = providers.NewSimulatedProvider()
