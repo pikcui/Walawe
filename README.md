@@ -4,7 +4,7 @@
 
 Walawe lets AI agents call models and paid APIs on their own, with hard spending limits set by humans. One API key, many models, per-agent budgets, and a full audit trail.
 
-> **Status: early development (pre-alpha).** The design is documented, the code is being built. Interfaces below describe the target behavior and may change. Do not use it with real funds yet.
+> **Status: MVP (v0.1.0) completed.** The core infrastructure (Gateway, Ledger, Policy Engine, Dashboard, SDKs) is fully functional and tested. Ready for v1 features (x402, smart accounts).
 
 ## Why Walawe
 
@@ -21,99 +21,18 @@ Walawe gives each agent its own wallet and rules:
 - **Self-hostable.** Run it yourself with Docker Compose or Helm.
 - **Non-custodial by design (v1).** Machine-to-machine payments (x402 / USDC) through smart accounts and scoped session keys. Your master key never touches our servers.
 
-## How it works
+## Architecture Completed (MVP)
 
-```
-Agent / SDK
-    |  HTTPS (API key)
-    v
-Gateway:  auth > policy > reserve > route > stream > settle
-    |
-    +--> Policy Engine     (deterministic rules)
-    +--> Ledger            (double-entry, append-only)
-    +--> Provider Adapters (OpenAI, Anthropic, ...)
-```
+- **Gateway (Go):** Handles API keys, rate limiting, policy checks, SSE streaming, and CORS.
+- **Ledger (PostgreSQL):** Double-entry accounting with `reserve` and `settle` holds. Guaranteed no negative balances (unless external).
+- **Policy Engine (Go):** Deterministic rules for daily/monthly limits, model allowlists, and kill switches.
+- **Dashboard (Next.js):** Real-time view of agent balances.
+- **SDKs:** Python and TypeScript SDKs with streaming support.
+- **Security:** SHA-256 API key hashing, Hash-chained audit logs, and Rate Limiting.
 
-1. The agent sends a request to Walawe with its API key.
-2. The policy engine checks the rules. Denied requests stop here with a clear reason.
-3. Walawe places a hold on the maximum possible cost.
-4. The request is routed to a provider and streamed back.
-5. Walawe settles the real cost and releases the rest of the hold.
+## Quickstart
 
-Details: [ARCHITECTURE.md](ARCHITECTURE.md).
-
-## Quickstart (target experience)
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:8080/v1",   # your Walawe gateway
-    api_key="wlw_...",                      # per-agent Walawe key
-)
-
-resp = client.chat.completions.create(
-    model="<model-name>",
-    messages=[{"role": "user", "content": "Hello"}],
-)
-```
-
-Run locally (available once stage 0 of the roadmap lands):
-
-```bash
-git clone https://github.com/pikcui/Walawe.git
-cd Walawe
-cp .env.example .env
-docker compose up
-```
-
-Full guides will live in [`docs/guides`](docs/guides).
-
-## Repository layout
-
-```
-/apps
-  /gateway          Go, main request path
-  /dashboard-api    Go, admin and reporting API
-  /web              Next.js dashboard
-/packages
-  /ledger           double-entry ledger
-  /policy-engine    spending policy evaluation
-  /providers        model provider adapters
-  /sdk-python       Python SDK (generated from OpenAPI)
-  /sdk-ts           TypeScript SDK (generated from OpenAPI)
-  /contracts        smart contracts (v1)
-/deploy             docker-compose, helm
-/docs               system docs, API spec, ADRs, runbooks
-```
-
-## Documentation
-
-| Document | What it covers |
-|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Components, request flow, design decisions, failure modes |
-| [docs/SYSTEM.md](docs/SYSTEM.md) | API, data model, configuration, observability, runbooks |
-| [SECURITY.md](SECURITY.md) | Threat model, security controls, how to report vulnerabilities |
-| [AGENTS.md](AGENTS.md) | Rules for AI agents and contributors building this repo |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
-
-## Roadmap
-
-- **MVP:** gateway, ledger, prepaid credits, spending policies, basic dashboard, Python and TypeScript SDKs, self-hosting.
-- **v1:** non-custodial smart accounts with session keys, x402 payments, human approvals, webhooks, bring-your-own-key.
-- **v2:** RBAC and SSO, anomaly detection, multi-chain.
-
-## Security
-
-Found a vulnerability? Please **do not** open a public issue. Use GitHub's private vulnerability reporting. See [SECURITY.md](SECURITY.md).
-
-## Legal notice
-
-Walawe handles monetary value. Operators are responsible for complying with the laws that apply where they run it, including rules on payments, stored value, and crypto-assets. The software is provided as is, without warranty, under the license below.
-
-## Contributing
-
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) first.
+See [Quickstart Guide](docs/guides/quickstart.md) to get started in under 10 minutes.
 
 ## License
 
