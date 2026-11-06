@@ -24,3 +24,4 @@ cache/
 lib/
 packages/contracts/out/
 packages/contracts/cache/
+testscript/
