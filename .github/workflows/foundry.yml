@@ -1,0 +1,21 @@
+name: Foundry CI
+
+on: [push, pull_request]
+
+jobs:
+  test-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Mengunduh forge-std otomatis
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+          
+      - name: Run Forge tests
+        run: |
+          cd packages/contracts
+          forge test -vvv

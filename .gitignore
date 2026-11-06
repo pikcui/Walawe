@@ -19,3 +19,9 @@ audit.log
 .next/
 node_modules/
 .env
+out/
+cache/
+lib/
+packages/contracts/lib/
+packages/contracts/out/
+packages/contracts/cache/
