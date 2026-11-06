@@ -80,6 +80,7 @@ func newMux() http.Handler {
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
 	mux.HandleFunc("/admin/approvals/resolve", AdminAuthMiddleware(handleResolveApproval))
+	mux.HandleFunc("/admin/usage", AdminAuthMiddleware(handleGetUsage))
 
 	return corsMiddleware(mux)
 }
@@ -102,7 +103,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Cek Anomali (Spam Detector)
 	if detector.RecordAndCheck(r.Context(), agentIDStr) {
 		http.Error(w, "Anomaly detected: Agent suspended", http.StatusForbidden)
 		return
@@ -114,7 +114,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
-	// 2. Ambil Status Asli Agen dari Database
 	var agentStatus string
 	err := dbPool.QueryRow(r.Context(), "SELECT status FROM agents WHERE id = $1::uuid", agentIDStr).Scan(&agentStatus)
 	if err != nil {
@@ -123,7 +122,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Ambil Usage (Pengeluaran) dari Database
 	usage, err := getAgentUsage(r.Context(), agentID)
 	if err != nil {
 		log.Printf("Failed to get usage: %v", err)
@@ -131,9 +129,8 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Konfigurasi Policy (Gunakan agentStatus yang asli)
 	policy := policyengine.Policy{
-		Status:            agentStatus, // <-- Ini sudah diperbaiki
+		Status:            agentStatus,
 		MaxCostPerRequest: ledger.MicroUSD(100000),
 		MaxCostPerDay:     ledger.MicroUSD(5000),
 		AllowedModels:     []string{"gpt-4", "claude-3-opus-20240229"},
@@ -308,6 +305,46 @@ func handleGetBalance(w http.ResponseWriter, r *http.Request) {
 		"agent_id":          agentUUID,
 		"balance_micro_usd": balance,
 	})
+}
+
+func handleGetUsage(w http.ResponseWriter, r *http.Request) {
+	agentUUID := "11111111-1111-1111-1111-111111111111"
+
+	// Perbaikan: Menggunakan alias 'usage_date' agar tidak bentrok dengan keyword SQL
+	query := `
+		SELECT 
+			TO_CHAR(created_at, 'YYYY-MM-DD') as usage_date,
+			COALESCE(SUM(amount), 0) as total
+		FROM entries
+		WHERE debit = $1 AND ref_type IN ('reserve', 'x402_payment')
+		AND created_at >= CURRENT_DATE - INTERVAL '7 days'
+		GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+		ORDER BY usage_date ASC
+	`
+
+	rows, err := dbPool.Query(r.Context(), query, agentUUID)
+	if err != nil {
+		log.Printf("Query error: %v", err)
+		http.Error(w, "Failed to get usage data", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var usageData []map[string]interface{}
+	for rows.Next() {
+		var dateStr string
+		var total int64
+		if err := rows.Scan(&dateStr, &total); err != nil {
+			continue
+		}
+		usageData = append(usageData, map[string]interface{}{
+			"date":  dateStr,
+			"total": total,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(usageData)
 }
 
 func handleGetApprovals(w http.ResponseWriter, r *http.Request) {
