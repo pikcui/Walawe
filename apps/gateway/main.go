@@ -32,7 +32,6 @@ var (
 )
 
 func main() {
-	// Baca DATABASE_URL dari environment (untuk Docker), fallback ke localhost (untuk Termux)
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = "postgres://android@localhost:5432/walawe?sslmode=disable"
@@ -72,12 +71,17 @@ func newMux() http.Handler {
 		w.Write([]byte("ok"))
 	})
 
+	// Agent Routes
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
-	mux.HandleFunc("/admin/balance", handleGetBalance)
-	mux.HandleFunc("/admin/approvals", handleGetApprovals)
-	mux.HandleFunc("/admin/approvals/resolve", handleResolveApproval)
-
 	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0xYourSmartContractAddress")(handlePremiumData))))
+
+	// Admin Auth Route
+	mux.HandleFunc("/admin/login", handleAdminLogin)
+
+	// Protected Admin Routes (JWT)
+	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
+	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
+	mux.HandleFunc("/admin/approvals/resolve", AdminAuthMiddleware(handleResolveApproval))
 
 	return corsMiddleware(mux)
 }

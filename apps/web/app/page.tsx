@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const Icons = {
   Wallet: () => (
@@ -22,13 +23,28 @@ export default function Home() {
   const [approvals, setApprovals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   const fetchData = async () => {
+    const token = localStorage.getItem('walawe_token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
     try {
+      const headers = { 'Authorization': `Bearer ${token}` };
       const [balRes, appRes] = await Promise.all([
-        fetch('http://127.0.0.1:8080/admin/balance'),
-        fetch('http://127.0.0.1:8080/admin/approvals')
+        fetch('http://127.0.0.1:8080/admin/balance', { headers }),
+        fetch('http://127.0.0.1:8080/admin/approvals', { headers })
       ]);
+
+      if (balRes.status === 401 || appRes.status === 401) {
+        localStorage.removeItem('walawe_token');
+        router.push('/login');
+        return;
+      }
+
       const balData = await balRes.json();
       const appData = await appRes.json();
       setBalance(balData.balance_micro_usd);
@@ -46,23 +62,30 @@ export default function Home() {
   }, []);
 
   const resolveRequest = async (id: string, action: 'approve' | 'reject') => {
+    const token = localStorage.getItem('walawe_token');
     try {
-      // Optimistic UI update (Langsung hilangkan dari layar tanpa nunggu server)
       setApprovals((prev) => prev.filter((req) => req.id !== id));
       
       await fetch('http://127.0.0.1:8080/admin/approvals/resolve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ id, action })
       });
-      fetchData(); // Sinkronisasi ulang dengan database
+      fetchData();
     } catch (err) {
       console.error(err);
-      fetchData(); // Kembalikan data jika error
+      fetchData();
     }
   };
 
-  // Animasi Fade In sederhana menggunakan class Tailwind
+  const handleLogout = () => {
+    localStorage.removeItem('walawe_token');
+    router.push('/login');
+  };
+
   const fadeIn = `transition-all duration-700 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`;
 
   return (
@@ -77,24 +100,25 @@ export default function Home() {
             </div>
             <span className="text-lg font-semibold tracking-tight text-white">Walawe</span>
           </div>
-          <div className="text-xs font-medium text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
-            Admin Portal
+          <div className="flex items-center gap-4">
+            <div className="text-xs font-medium text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
+              Admin Portal
+            </div>
+            <button onClick={handleLogout} className="text-xs text-neutral-400 hover:text-white transition-colors">
+              Logout
+            </button>
           </div>
         </div>
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-12 space-y-12">
         
-        {/* Header */}
         <div className={fadeIn}>
           <h1 className="text-3xl font-bold text-white tracking-tighter">Overview</h1>
           <p className="text-neutral-500 text-sm mt-1">Manage your agent wallet and authorize pending actions.</p>
         </div>
 
-        {/* Stats Grid */}
         <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${fadeIn}`}>
-          
-          {/* Card Saldo */}
           <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800 hover:border-neutral-700 transition-colors duration-300 group relative overflow-hidden">
             <div className="flex justify-between items-start relative z-10">
               <div>
@@ -113,7 +137,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Card Status */}
           <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800 md:col-span-2 flex flex-col justify-center relative overflow-hidden">
             <p className="text-sm font-medium text-neutral-400 mb-2">System Status</p>
             <div className="flex items-center gap-3">
@@ -127,7 +150,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Tabel Persetujuan */}
         <div className={`bg-neutral-950 rounded-2xl border border-neutral-800 overflow-hidden ${fadeIn}`}>
           <div className="p-6 border-b border-neutral-800 flex items-center justify-between">
             <div>
