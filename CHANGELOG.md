@@ -1,15 +1,20 @@
 # Changelog
 
-## [0.4.0-alpha] - 2026-11-06
+## [0.5.0-beta] - 2026-11-06
 ### Added
-- **Dashboard Charts:** Added `/admin/usage` endpoint and Recharts line chart for 7-day spending trends.
-- **Anomaly Detection:** In-memory spam detector that auto-suspends agents making > 20 req/min.
-- **Policy Usage Aggregation:** Real SQL aggregation for `SpentToday` and `SpentMonth` instead of hardcoded `0`.
-- **OpenZeppelin ECDSA:** Replaced mock signature verification in `WalaweAccount.sol` with real `ECDSA.recover`.
+- **Base Sepolia Deployment:** Successfully deployed `WalaweAccount.sol` to Base Sepolia Testnet.
+- **True On-Chain Interaction:** Added Session Key directly to the deployed smart contract using Foundry `cast`.
+- **Dynamic API URL:** Frontend now uses `NEXT_PUBLIC_API_URL` for better deployment flexibility.
 
 ### Security
-- Implemented Docker Secrets management using `.env` files.
-- Fixed agent status reading from DB before Policy Evaluation to enforce suspensions.
+- Enforced agent suspension status by reading from DB before Policy Evaluation.
+
+## [0.4.0-alpha] - 2026-11-06
+### Added
+- Dashboard Charts (Recharts).
+- Anomaly Detection (in-memory).
+- Policy Usage Aggregation.
+- OpenZeppelin ECDSA for Smart Contract signatures.
 
 ## [0.3.0-alpha] - 2026-11-06
 ### Added
