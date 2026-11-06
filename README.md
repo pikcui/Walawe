@@ -1,10 +1,8 @@
 # Walawe
 
-**Open-source wallet and API gateway infrastructure for AI agents.**
+**Open-source wallet and API gateway infrastructure for autonomous AI agents.**
 
 Walawe lets AI agents call models and paid APIs on their own, with hard spending limits set by humans. One API key, many models, per-agent budgets, and a full audit trail.
-
-> **Status: MVP (v0.1.0) completed.** The core infrastructure (Gateway, Ledger, Policy Engine, Dashboard, SDKs) is fully functional and tested. Ready for v1 features (x402, smart accounts).
 
 ## Why Walawe
 
@@ -16,23 +14,55 @@ Walawe gives each agent its own wallet and rules:
 - **Per-agent budgets.** Limits per request, per day, per month. Model and destination allowlists.
 - **Deterministic policy engine.** Spending rules are enforced by code, not by prompts. A hijacked agent cannot talk its way past them.
 - **Accurate metering.** Every token is metered and charged through a double-entry ledger (reserve, then settle).
-- **Kill switch.** Suspend an agent or an entire organization instantly.
-- **Audit trail.** Every spend and every policy change is recorded.
+- **Human Approvals.** High-value transactions are held until a human approves them via the Dashboard.
+- **x402 Machine Payments.** Agents can pay for premium data/APIs using Ethereum signatures (EIP-191) without exposing their master key.
+- **Hash-chained Audit Log.** Tamper-evident security tracking for every spend.
 - **Self-hostable.** Run it yourself with Docker Compose or Helm.
-- **Non-custodial by design (v1).** Machine-to-machine payments (x402 / USDC) through smart accounts and scoped session keys. Your master key never touches our servers.
 
-## Architecture Completed (MVP)
+## Architecture
 
-- **Gateway (Go):** Handles API keys, rate limiting, policy checks, SSE streaming, and CORS.
-- **Ledger (PostgreSQL):** Double-entry accounting with `reserve` and `settle` holds. Guaranteed no negative balances (unless external).
-- **Policy Engine (Go):** Deterministic rules for daily/monthly limits, model allowlists, and kill switches.
-- **Dashboard (Next.js):** Real-time view of agent balances.
-- **SDKs:** Python and TypeScript SDKs with streaming support.
-- **Security:** SHA-256 API key hashing, Hash-chained audit logs, and Rate Limiting.
+Agent / SDK
+    |  HTTPS (API key) + X-PAYMENT (Crypto signature)
+    v
+Gateway (Go)  -->  Policy Engine (Limits, Allowlist, Human Approvals)
+    |          -->  Auth (SHA-256 API Keys, Rate Limiting)
+    |          -->  x402 Middleware (EIP-191 Signature Verification)
+    v
+Provider Adapters (Mocked for now) ---> OpenAI / Anthropic / ...
+    |
+    v
+PostgreSQL (Double-entry Ledger, Approval Requests) 
+    |
+    v
+Next.js Dashboard (Monochrome UI, Approval Controls)
 
 ## Quickstart
 
 See [Quickstart Guide](docs/guides/quickstart.md) to get started in under 10 minutes.
+
+## Tech Stack & Modules
+
+- **Gateway & Core:** Go (Golang)
+- **Database:** PostgreSQL (via `pgx`)
+- **Smart Contracts:** Solidity (Foundry)
+- **Dashboard:** Next.js, Tailwind CSS, TypeScript
+- **SDKs:** Python & TypeScript (In progress)
+
+## Roadmap
+
+- **MVP (Completed):** Gateway, ledger, prepaid credits, spending policies, dashboard, SDKs, self-hosting.
+- **v1 (In Progress):**
+  - [x] Crypto Signature Verification (EIP-191)
+  - [x] x402 Payment Middleware
+  - [x] Human Approvals (Backend & UI)
+  - [ ] Smart Account (ERC-4337) Implementation
+  - [ ] Webhooks
+  - [ ] Bring-Your-Own-Key (BYOK)
+- **v2 (Future):** RBAC and SSO, anomaly detection, multi-chain.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) first.
 
 ## License
 
