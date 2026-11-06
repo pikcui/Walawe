@@ -72,8 +72,8 @@ func newMux() http.Handler {
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/admin/balance", handleGetBalance)
 
-	// Endpoint baru: Butuh pembayaran 1000 micro-USD (0.001 USD)
-	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(X402Middleware(1000, "0xYourSmartContractAddress")(handlePremiumData)))
+	// Endpoint Premium: Rate Limit -> Auth (Dapatkan agentID) -> X402 (Potong Saldo) -> Handler
+	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0xYourSmartContractAddress")(handlePremiumData))))
 
 	return corsMiddleware(mux)
 }
