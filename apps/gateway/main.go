@@ -169,7 +169,7 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// BYOK Logic
+	// BYOK Logic (Pemilihan Provider)
 	providerKey := r.Header.Get("X-Provider-Key")
 	var activeProvider providers.Provider
 
@@ -304,10 +304,30 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 		status = "rejected"
 	}
 
+	// 1. Update status di database
 	_, err := dbPool.Exec(r.Context(), "UPDATE approval_requests SET status = $1, resolved_at = now() WHERE id = $2", status, payload.ID)
 	if err != nil {
 		http.Error(w, "Failed to update approval", http.StatusInternalServerError)
 		return
+	}
+
+	// 2. Ambil webhook_url dari agen yang bersangkutan
+	var webhookURL string
+	err = dbPool.QueryRow(r.Context(), `
+		SELECT a.webhook_url 
+		FROM agents a 
+		JOIN approval_requests ar ON a.id = ar.agent_id 
+		WHERE ar.id = $1`, payload.ID).Scan(&webhookURL)
+
+	if err == nil && webhookURL != "" {
+		// 3. Kirim Webhook
+		sendWebhook(webhookURL, map[string]interface{}{
+			"event":      "approval_resolved",
+			"request_id": payload.ID,
+			"status":     status,
+		})
+	} else if err != nil {
+		log.Printf("Warning: could not find webhook_url for approval %s: %v", payload.ID, err)
 	}
 
 	w.WriteHeader(http.StatusOK)
