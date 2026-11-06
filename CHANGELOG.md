@@ -1,17 +1,21 @@
 # Changelog
 
-All notable changes to this project are documented here.
-Format based on [Keep a Changelog](https://keepachangelog.com/), versioning follows [SemVer](https://semver.org/).
-
-## [Unreleased]
-
+## [0.3.0] - 2026-11-06
 ### Added
-- Stage 0 foundation: monorepo skeleton, Go workspace, gateway health endpoint,
-  docker-compose (Postgres, Redis, NATS), initial database migration (draft),
-  CI (gofmt, vet, tests, compose validation, secret scan), ADR 0001 and 0002 (proposed).
+- Webhook delivery for resolved approvals.
+- Bring-Your-Own-Key (BYOK) for OpenAI.
+- x402 Mock Payment Middleware and EIP-191 signature verification.
+- Human Approval mechanism (Policy Engine, Database, Admin API).
+- Admin Dashboard UI for approving/rejecting requests.
+- Rate limiting and Hash-chained audit logs.
 
-### Added (stage 1a)
-- `packages/ledger`: double-entry ledger domain logic (Credit, Reserve, Settle, Release,
-  ReleaseExpired, Balance) with an in-memory store, unit tests, a concurrency test,
-  and a randomized invariant test. Standard library only.
-- ADR 0003: ledger store abstraction and stage 1 split (proposed).
+### Changed
+- Redesigned Dashboard to a premium Monochrome UI.
+- Upgraded Gateway to handle dynamic provider selection.
+
+## [0.1.0] - 2026-11-05
+### Added
+- Initial MVP release.
+- Double-entry Ledger with PostgreSQL.
+- Deterministic Policy Engine.
+- Basic Gateway and Next.js Dashboard.
