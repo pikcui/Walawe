@@ -91,12 +91,10 @@ func newMux() http.Handler {
 
 	mux.HandleFunc("/admin/login", handleAdminLogin)
 
-	// Read-only routes for Admin & Viewer
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
 	mux.HandleFunc("/admin/usage", AdminAuthMiddleware(handleGetUsage))
 
-	// Admin-only routes
 	mux.HandleFunc("/admin/approvals/resolve", AdminOnlyMiddleware(handleResolveApproval))
 	mux.HandleFunc("/admin/users", AdminOnlyMiddleware(handleCreateUser))
 
@@ -121,16 +119,23 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Cek Anomali Request (Spam)
 	if detector.RecordAndCheck(r.Context(), agentIDStr) {
-		http.Error(w, "Anomaly detected: Agent suspended", http.StatusForbidden)
+		http.Error(w, "Anomaly detected: Agent suspended (Spam)", http.StatusForbidden)
 		return
 	}
-
-	writeAuditLog("chat_completion_request", agentIDStr)
 
 	agentID := ledger.AccountID(agentIDStr)
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
+
+	// 2. Cek Anomali Spending (Laju Pengeluaran)
+	if detector.RecordSpending(r.Context(), agentIDStr, estimatedCost) {
+		http.Error(w, "Anomaly detected: Agent suspended (High Spending Rate)", http.StatusForbidden)
+		return
+	}
+
+	writeAuditLog("chat_completion_request", agentIDStr)
 
 	var agentStatus string
 	err := dbPool.QueryRow(r.Context(), "SELECT status FROM agents WHERE id = $1::uuid", agentIDStr).Scan(&agentStatus)
