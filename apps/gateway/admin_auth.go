@@ -20,6 +20,12 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+// CustomClaims menambahkan Role ke dalam token
+type CustomClaims struct {
+	Role string `json:"role"`
+	jwt.RegisteredClaims
+}
+
 func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -36,26 +42,28 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Cari user di database
-	var storedHash string
-	err := dbPool.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE email = $1", creds.Email).Scan(&storedHash)
+	var storedHash, role string
+	err := dbPool.QueryRow(r.Context(), "SELECT password_hash, role FROM users WHERE email = $1", creds.Email).Scan(&storedHash, &role)
 	if err != nil {
-		// Jangan beri tahu alasan spesifiknya (keamanan)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// 2. Verifikasi password menggunakan bcrypt
+	// 2. Verifikasi password
 	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(creds.Password))
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// 3. Buat JWT Token
+	// 3. Buat JWT Token dengan Role
 	expirationTime := time.Now().Add(24 * time.Hour)
-	claims := &jwt.RegisteredClaims{
-		Subject:   creds.Email,
-		ExpiresAt: jwt.NewNumericDate(expirationTime),
+	claims := &CustomClaims{
+		Role: role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   creds.Email,
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -66,9 +74,10 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
+	json.NewEncoder(w).Encode(map[string]string{"token": tokenString, "role": role})
 }
 
+// AdminAuthMiddleware memvalidasi JWT untuk semua rute admin
 func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -78,7 +87,7 @@ func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-		claims := &jwt.RegisteredClaims{}
+		claims := &CustomClaims{}
 
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			return jwtKey, nil
@@ -86,6 +95,36 @@ func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+}
+
+// AdminOnlyMiddleware membatasi akses HANYA untuk role 'admin'
+func AdminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		claims := &CustomClaims{}
+
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+
+		if err != nil || !token.Valid {
+			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
+			return
+		}
+
+		if claims.Role != "admin" {
+			http.Error(w, "Forbidden: Admin access required", http.StatusForbidden)
 			return
 		}
 
