@@ -1,49 +1,37 @@
-name: ci
 on: [push, pull_request]
 
 jobs:
-  lint:
+  secret-scan:
+    name: secret scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Validate YAML
-        run: |
-          pip install yamllint
-          yamllint .github/workflows/ci.yml || true
-      - name: Check no secrets (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-  go-test:
+
+  compose-config:
+    name: compose config
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Validate Compose
+        run: cp .env.example .env && docker compose -f docker-compose.dev.yml config --quiet
+
+  go-tests:
+    name: go (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [apps/gateway, packages/ledger, packages/policy-engine, packages/providers]
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.0'
       - name: Go fmt check
         run: test -z "$(gofmt -l .)" || (echo "gofmt needed"; exit 1)
-      - name: Test Gateway
-        run: cd apps/gateway && go test ./...
-      - name: Test Ledger
-        run: cd packages/ledger && go test ./...
-      - name: Test Policy Engine
-        run: cd packages/policy-engine && go test ./...
-      - name: Test Providers
-        run: cd packages/providers && go test ./...
-
-  compose-config:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Validate Compose
-        run: |
-          cp .env.example .env
-          docker compose -f docker-compose.dev.yml config --quiet
+      - name: Test ${{ matrix.module }}
+        run: cd ${{ matrix.module }} && go test ./...
