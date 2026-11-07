@@ -1,6 +1,6 @@
 module github.com/pikcui/Walawe/apps/gateway
 
-go 1.23.0
+go 1.25.0
 
 replace github.com/pikcui/Walawe/packages/ledger => ../../packages/ledger
 
@@ -15,7 +15,7 @@ require (
 	github.com/pikcui/Walawe/packages/policy-engine v0.0.0
 	github.com/pikcui/Walawe/packages/providers v0.0.0-00010101000000-000000000000
 	github.com/redis/go-redis/v9 v9.7.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.34.0
 )
 
 require (
@@ -24,7 +24,8 @@ require (
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/consensys/gnark-crypto v0.18.1 // indirect
+	github.com/consensys/bavard v0.1.29 // indirect
+	github.com/consensys/gnark-crypto v0.17.0 // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
@@ -36,6 +37,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.3 // indirect
+	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
@@ -45,6 +47,7 @@ require (
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
+	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 replace github.com/pikcui/Walawe/packages/providers => ../../packages/providers
