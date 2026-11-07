@@ -37,7 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+              chore/cloady-root-dockerfile
       - name: Validate docker-compose.yml
+      - name: Validate docker-compose.dev.yml
+
         run: cp .env.example .env && docker compose -f docker-compose.dev.yml config --quiet
 
   secrets:
