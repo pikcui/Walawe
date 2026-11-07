@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtKey = []byte(getEnv("JWT_SECRET", "super_secret_dev_key"))
@@ -26,7 +27,7 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var creds struct {
-		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
@@ -34,18 +35,26 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expectedUser := getEnv("ADMIN_USER", "admin")
-	expectedPass := getEnv("ADMIN_PASS", "password123")
-
-	if creds.Username != expectedUser || creds.Password != expectedPass {
+	// 1. Cari user di database
+	var storedHash string
+	err := dbPool.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE email = $1", creds.Email).Scan(&storedHash)
+	if err != nil {
+		// Jangan beri tahu alasan spesifiknya (keamanan)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// Buat JWT Token
+	// 2. Verifikasi password menggunakan bcrypt
+	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(creds.Password))
+	if err != nil {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// 3. Buat JWT Token
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &jwt.RegisteredClaims{
-		Subject:   creds.Username,
+		Subject:   creds.Email,
 		ExpiresAt: jwt.NewNumericDate(expirationTime),
 	}
 
@@ -60,7 +69,6 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
 }
 
-// AdminAuthMiddleware memvalidasi JWT untuk rute admin
 func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
