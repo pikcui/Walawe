@@ -27,14 +27,19 @@ export default function Home() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const router = useRouter();
 
   const fetchData = async () => {
     const token = localStorage.getItem('walawe_token');
+    const role = localStorage.getItem('walawe_role');
+    
     if (!token) {
       router.push('/login');
       return;
     }
+    
+    setUserRole(role);
 
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
@@ -46,6 +51,7 @@ export default function Home() {
 
       if (balRes.status === 401 || appRes.status === 401 || usageRes.status === 401) {
         localStorage.removeItem('walawe_token');
+        localStorage.removeItem('walawe_role');
         router.push('/login');
         return;
       }
@@ -77,7 +83,7 @@ export default function Home() {
     const token = localStorage.getItem('walawe_token');
     try {
       setApprovals((prev) => prev.filter((req) => req.id !== id));
-      await fetch(`${API_URL}/admin/approvals/resolve`, {
+      const res = await fetch(`${API_URL}/admin/approvals/resolve`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -85,6 +91,13 @@ export default function Home() {
         },
         body: JSON.stringify({ id, action })
       });
+      
+      if (res.status === 403) {
+        alert("Forbidden: You do not have permission to approve requests.");
+        fetchData();
+        return;
+      }
+      
       fetchData();
     } catch (err) {
       console.error(err);
@@ -94,6 +107,7 @@ export default function Home() {
 
   const handleLogout = () => {
     localStorage.removeItem('walawe_token');
+    localStorage.removeItem('walawe_role');
     router.push('/login');
   };
 
@@ -112,7 +126,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-xs font-medium text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
-              Admin Portal
+              {userRole === 'admin' ? 'Admin Portal' : 'Viewer Mode'}
             </div>
             <button onClick={handleLogout} className="text-xs text-neutral-400 hover:text-white transition-colors">
               Logout
@@ -202,6 +216,7 @@ export default function Home() {
             )}
           </div>
 
+          {/* Tampilan Mobile (Kartu) */}
           <div className="md:hidden divide-y divide-neutral-800">
             {approvals.length === 0 ? (
               <div className="p-12 text-center flex flex-col items-center gap-3">
@@ -234,25 +249,29 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={() => resolveRequest(req.id, 'approve')}
-                      className="flex-1 bg-white text-black py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                    >
-                      <Icons.Check /> Approve
-                    </button>
-                    <button 
-                      onClick={() => resolveRequest(req.id, 'reject')}
-                      className="flex-1 bg-transparent border border-neutral-700 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-800 hover:border-neutral-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                    >
-                      <Icons.X /> Reject
-                    </button>
-                  </div>
+                  {/* TOMBOL HANYA MUNCUL UNTUK ADMIN */}
+                  {userRole === 'admin' && (
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => resolveRequest(req.id, 'approve')}
+                        className="flex-1 bg-white text-black py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                      >
+                        <Icons.Check /> Approve
+                      </button>
+                      <button 
+                        onClick={() => resolveRequest(req.id, 'reject')}
+                        className="flex-1 bg-transparent border border-neutral-700 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-800 hover:border-neutral-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                      >
+                        <Icons.X /> Reject
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
 
+          {/* Tampilan Desktop (Tabel) */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-black text-neutral-500 text-xs uppercase tracking-wider font-medium border-b border-neutral-800">
@@ -261,13 +280,14 @@ export default function Home() {
                   <th className="px-6 py-4 font-normal">Model</th>
                   <th className="px-6 py-4 font-normal">Cost</th>
                   <th className="px-6 py-4 font-normal">Status</th>
-                  <th className="px-6 py-4 text-right font-normal">Actions</th>
+                  {/* Kolom aksi disembunyikan jika viewer */}
+                  {userRole === 'admin' && <th className="px-6 py-4 text-right font-normal">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800">
                 {approvals.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-16 text-center text-neutral-500">
+                    <td colSpan={userRole === 'admin' ? 5 : 4} className="px-6 py-16 text-center text-neutral-500">
                       No pending approvals right now.
                     </td>
                   </tr>
@@ -282,22 +302,25 @@ export default function Home() {
                           {req.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => resolveRequest(req.id, 'approve')}
-                            className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-200 active:scale-95 transition-all"
-                          >
-                            Approve
-                          </button>
-                          <button 
-                            onClick={() => resolveRequest(req.id, 'reject')}
-                            className="bg-transparent border border-neutral-700 text-white px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-800 active:scale-95 transition-all"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </td>
+                      {/* Sel aksi disembunyikan jika viewer */}
+                      {userRole === 'admin' && (
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => resolveRequest(req.id, 'approve')}
+                              className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-200 active:scale-95 transition-all"
+                            >
+                              Approve
+                            </button>
+                            <button 
+                              onClick={() => resolveRequest(req.id, 'reject')}
+                              className="bg-transparent border border-neutral-700 text-white px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-800 active:scale-95 transition-all"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

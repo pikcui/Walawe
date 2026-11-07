@@ -28,6 +28,7 @@ export default function Login() {
 
       const data = await res.json();
       localStorage.setItem('walawe_token', data.token);
+      localStorage.setItem('walawe_role', data.role); // Simpan role
       router.push('/');
     } catch (err) {
       setError('Login failed. Please check your email and password.');
