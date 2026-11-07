@@ -29,9 +29,10 @@ type Message struct {
 }
 
 var (
-	dbStore  *ledger.PgStore
-	dbPool   *pgxpool.Pool
-	detector *AnomalyDetector
+	dbStore     *ledger.PgStore
+	dbPool      *pgxpool.Pool
+	detector    *AnomalyDetector
+	redisClient *redis.Client
 )
 
 func main() {
@@ -61,6 +62,7 @@ func main() {
 		}
 		rdb = redis.NewClient(opt)
 	}
+	redisClient = rdb
 
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		log.Printf("WARNING: Failed to connect to Redis: %v", err)
@@ -70,7 +72,6 @@ func main() {
 
 	mux := newMux()
 
-	// Membaca PORT dari environment variable (untuk Hostless/Cloud Run)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -104,6 +105,7 @@ func newMux() http.Handler {
 	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0x8a21C2f8F19123de2bcc5F7932d2351eba1Db6Eb")(handlePremiumData))))
 
 	mux.HandleFunc("/admin/login", handleAdminLogin)
+	mux.HandleFunc("/admin/register", handleAdminRegister)
 
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
@@ -127,7 +129,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Wajib BYOK (Bring Your Own Key)
 	providerKey := r.Header.Get("X-Provider-Key")
 	providerName := r.Header.Get("X-Provider-Name")
 
@@ -153,7 +154,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Anomaly detected: Agent suspended (Spam)", http.StatusForbidden)
 		return
 	}
-
 	agentID := ledger.AccountID(agentIDStr)
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
@@ -289,7 +289,6 @@ Settle:
 		h.BilledAmount = actualCost
 		h.Status = ledger.HoldSettled
 		h.SettledAt = time.Now()
-
 		if err := tx.PutHold(h); err != nil {
 			return err
 		}
@@ -330,7 +329,7 @@ Settle:
 func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.Usage, error) {
 	var spentToday, spentMonth int64
 	query := `
-SELECT 
+SELECT
 COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as spent_today,
 COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as spent_month
 FROM entries
@@ -374,7 +373,7 @@ func handleGetUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-SELECT 
+SELECT
 TO_CHAR(created_at, 'YYYY-MM-DD') as usage_date,
 COALESCE(SUM(amount), 0) as total
 FROM entries
@@ -455,9 +454,9 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 	}
 	var webhookURL string
 	err = dbPool.QueryRow(r.Context(), `
-SELECT a.webhook_url 
-FROM agents a 
-JOIN approval_requests ar ON a.id = ar.agent_id 
+SELECT a.webhook_url
+FROM agents a
+JOIN approval_requests ar ON a.id = ar.agent_id
 WHERE ar.id = $1`, payload.ID).Scan(&webhookURL)
 	if err == nil && webhookURL != "" {
 		sendWebhook(webhookURL, map[string]interface{}{
