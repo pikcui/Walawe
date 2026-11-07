@@ -13,6 +13,7 @@ import (
 	"github.com/pikcui/Walawe/packages/ledger"
 	policyengine "github.com/pikcui/Walawe/packages/policy-engine"
 	"github.com/pikcui/Walawe/packages/providers"
+	"github.com/redis/go-redis/v9"
 )
 
 type ChatRequest struct {
@@ -44,7 +45,20 @@ func main() {
 	}
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
-	detector = NewAnomalyDetector(pool)
+
+	// Inisialisasi Redis
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "localhost:6379"
+	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisURL,
+	})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Printf("WARNING: Failed to connect to Redis: %v", err)
+	}
+
+	detector = NewAnomalyDetector(rdb, pool)
 
 	mux := newMux()
 	port := ":8080"
@@ -310,7 +324,6 @@ func handleGetBalance(w http.ResponseWriter, r *http.Request) {
 func handleGetUsage(w http.ResponseWriter, r *http.Request) {
 	agentUUID := "11111111-1111-1111-1111-111111111111"
 
-	// Perbaikan: Menggunakan alias 'usage_date' agar tidak bentrok dengan keyword SQL
 	query := `
 		SELECT 
 			TO_CHAR(created_at, 'YYYY-MM-DD') as usage_date,

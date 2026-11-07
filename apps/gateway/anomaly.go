@@ -2,58 +2,54 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type AnomalyDetector struct {
-	mu       sync.Mutex
-	requests map[string][]time.Time
-	db       *pgxpool.Pool
+	rdb *redis.Client
+	db  *pgxpool.Pool
 }
 
-func NewAnomalyDetector(db *pgxpool.Pool) *AnomalyDetector {
+func NewAnomalyDetector(rdb *redis.Client, db *pgxpool.Pool) *AnomalyDetector {
 	return &AnomalyDetector{
-		requests: make(map[string][]time.Time),
-		db:       db,
+		rdb: rdb,
+		db:  db,
 	}
 }
 
-// RecordAndCheck mencatat request dan memeriksa apakah agen melakukan spam
+// RecordAndCheck mencatat request di Redis dan memeriksa apakah agen melakukan spam
 func (a *AnomalyDetector) RecordAndCheck(ctx context.Context, agentID string) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	key := fmt.Sprintf("anomaly:%s", agentID)
 
-	now := time.Now()
-	var validRequests []time.Time
-
-	// Hanya simpan request dalam 1 menit terakhir
-	for _, t := range a.requests[agentID] {
-		if now.Sub(t) < time.Minute {
-			validRequests = append(validRequests, t)
-		}
+	// Increment request count for this agent
+	count, err := a.rdb.Incr(ctx, key).Result()
+	if err != nil {
+		log.Printf("Redis error: %v", err)
+		return false // Fail open (jangan blokir jika Redis mati)
 	}
 
-	// Batas anomali: > 20 request per menit
-	if len(validRequests) >= 20 {
-		log.Printf("ANOMALY DETECTED: Agent %s made too many requests", agentID)
+	// Set expiration to 1 minute on the first request
+	if count == 1 {
+		a.rdb.Expire(ctx, key, 1*time.Minute)
+	}
 
-		// Suspend agen di database (menggunakan cast ::uuid agar aman)
-		_, err := a.db.Exec(ctx, "UPDATE agents SET status = 'suspended' WHERE id = $1::uuid", agentID)
-		if err != nil {
-			log.Printf("Failed to suspend agent %s: %v", agentID, err)
-		} else {
-			log.Printf("Agent %s suspended successfully", agentID)
+	// If more than 20 requests in 1 minute, suspend the agent
+	if count > 20 {
+		log.Printf("ANOMALY DETECTED: Agent %s made %d requests in a minute", agentID, count)
+
+		// Suspend agen di database
+		_, dbErr := a.db.Exec(ctx, "UPDATE agents SET status = 'suspended' WHERE id = $1::uuid", agentID)
+		if dbErr != nil {
+			log.Printf("Failed to suspend agent %s: %v", agentID, dbErr)
 		}
 
-		// Bersihkan history agar tidak memicu berulang kali
-		delete(a.requests, agentID)
 		return true
 	}
 
-	a.requests[agentID] = append(validRequests, now)
 	return false
 }
