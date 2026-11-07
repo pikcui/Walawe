@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useAccount, useConnect, useDisconnect, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { parseUnits } from 'viem';
+import { baseSepolia } from 'wagmi/chains';
 
 const Icons = {
   Wallet: () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>),
@@ -39,9 +40,10 @@ export default function Home() {
   
   const [showWalletModal, setShowWalletModal] = useState(false);
 
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { connect, connectors, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
+  const { switchChain } = useSwitchChain(); // Hook untuk ganti jaringan
   const { data: hash, writeContract, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
@@ -114,6 +116,17 @@ export default function Home() {
   const handleWeb3Deposit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isConnected) { setShowWalletModal(true); return; }
+    
+    // CEK JARINGAN (NETWORK)
+    if (chainId !== baseSepolia.id) {
+      try {
+        await switchChain({ chainId: baseSepolia.id });
+      } catch (err) {
+        alert("Gagal pindah jaringan. Silakan ganti manual ke Base Sepolia di MetaMask.");
+        return;
+      }
+    }
+
     const parsedAmount = parseFloat(depositAmount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) { alert("Masukkan nominal yang valid"); return; }
     const amountInUnits = parseUnits(depositAmount, 6);
@@ -198,7 +211,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL PILIHAN DOMPET BARU */}
+      {/* Modal Hubungkan Dompet */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
