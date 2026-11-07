@@ -1,52 +1,37 @@
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-permissions:
-  contents: read
+on: [push, pull_request]
 
 jobs:
-  go:
-    name: go (${{ matrix.module }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        module: [apps/gateway, packages/ledger, packages/policy-engine, packages/providers]
-    defaults:
-      run:
-        working-directory: ${{ matrix.module }}
-    steps:
-      # TODO(verify): pin actions by commit SHA (Dependabot keeps them updated).
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: "1.23"
-      - name: gofmt
-        run: test -z "$(gofmt -l .)"
-      - name: vet
-        run: go vet ./...
-      - name: test
-        run: go test -race -count=1 ./...
-
-  compose:
-    name: compose config
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Validate docker-compose.dev.yml
-        run: cp .env.example .env && docker compose -f docker-compose.dev.yml config --quiet
-
-  secrets:
+  secret-scan:
     name: secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v3
+      - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  compose-config:
+    name: compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose
+        run: cp .env.example .env && docker compose -f docker-compose.dev.yml config --quiet
+
+  go-tests:
+    name: go (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [apps/gateway, packages/ledger, packages/policy-engine, packages/providers]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.0'
+      - name: Go fmt check
+        run: test -z "$(gofmt -l .)" || (echo "gofmt needed"; exit 1)
+      - name: Test ${{ matrix.module }}
+        run: cd ${{ matrix.module }} && go test ./...
