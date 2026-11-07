@@ -424,11 +424,19 @@ func handleAdminDeposit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Pastikan akun system_treasury ada di database
+	_, err := dbPool.Exec(r.Context(), `INSERT INTO accounts (id, balance) VALUES ('system_treasury', 0) ON CONFLICT DO NOTHING`)
+	if err != nil {
+		log.Printf("deposit: failed to init system_treasury: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "system_init_failed"})
+		return
+	}
+
 	agentID := ledger.AccountID(agentIDStr)
 	requestID := fmt.Sprintf("dep_%d", time.Now().UnixNano())
 
-	// Catat ke Ledger: Debit dari System, Credit ke Agent
-	err := dbStore.Do(r.Context(), func(tx ledger.Tx) error {
+	// 2. Catat ke Ledger: Debit dari System, Credit ke Agent
+	err = dbStore.Do(r.Context(), func(tx ledger.Tx) error {
 		_, err := tx.InsertEntry(ledger.Entry{
 			Debit:          "system_treasury",
 			Credit:         agentID,
