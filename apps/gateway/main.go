@@ -46,13 +46,19 @@ func main() {
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
 
+	// Perbaikan: Menggunakan redis.ParseURL untuk Upstash
 	redisURL := os.Getenv("REDIS_URL")
+	var rdb *redis.Client
 	if redisURL == "" {
-		redisURL = "localhost:6379"
+		rdb = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	} else {
+		opt, err := redis.ParseURL(redisURL)
+		if err != nil {
+			log.Fatalf("Invalid REDIS_URL: %v", err)
+		}
+		rdb = redis.NewClient(opt)
 	}
-	rdb := redis.NewClient(&redis.Options{
-		Addr: redisURL,
-	})
+
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		log.Printf("WARNING: Failed to connect to Redis: %v", err)
 	}
@@ -119,7 +125,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Cek Anomali Request (Spam)
 	if detector.RecordAndCheck(r.Context(), agentIDStr) {
 		http.Error(w, "Anomaly detected: Agent suspended (Spam)", http.StatusForbidden)
 		return
@@ -129,7 +134,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	holdAcc := ledger.AccountID("hold_" + agentIDStr)
 	estimatedCost := ledger.MicroUSD(req.MaxTokens * 10)
 
-	// 2. Cek Anomali Spending (Laju Pengeluaran)
 	if detector.RecordSpending(r.Context(), agentIDStr, estimatedCost) {
 		http.Error(w, "Anomaly detected: Agent suspended (High Spending Rate)", http.StatusForbidden)
 		return
@@ -165,9 +169,9 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if !decision.Allowed {
 		if decision.Reason == "require_approval" {
 			_, dbErr := dbPool.Exec(r.Context(), `
-				INSERT INTO approval_requests (agent_id, model, estimated_cost_micro_usd)
-				VALUES ($1, $2, $3)
-			`, agentIDStr, req.Model, int64(estimatedCost))
+INSERT INTO approval_requests (agent_id, model, estimated_cost_micro_usd)
+VALUES ($1, $2, $3)
+`, agentIDStr, req.Model, int64(estimatedCost))
 			if dbErr != nil {
 				log.Printf("Failed to save approval request: %v", dbErr)
 			}
@@ -314,12 +318,12 @@ Settle:
 func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.Usage, error) {
 	var spentToday, spentMonth int64
 	query := `
-		SELECT 
-			COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as spent_today,
-			COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as spent_month
-		FROM entries
-		WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
-	`
+SELECT 
+COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as spent_today,
+COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as spent_month
+FROM entries
+WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
+`
 	err := dbPool.QueryRow(ctx, query, string(agentID)).Scan(&spentToday, &spentMonth)
 	if err != nil {
 		return policyengine.Usage{}, err
@@ -349,15 +353,15 @@ func handleGetUsage(w http.ResponseWriter, r *http.Request) {
 	agentUUID := "11111111-1111-1111-1111-111111111111"
 
 	query := `
-		SELECT 
-			TO_CHAR(created_at, 'YYYY-MM-DD') as usage_date,
-			COALESCE(SUM(amount), 0) as total
-		FROM entries
-		WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
-		AND created_at >= CURRENT_DATE - INTERVAL '7 days'
-		GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
-		ORDER BY usage_date ASC
-	`
+SELECT 
+TO_CHAR(created_at, 'YYYY-MM-DD') as usage_date,
+COALESCE(SUM(amount), 0) as total
+FROM entries
+WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
+AND created_at >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+ORDER BY usage_date ASC
+`
 
 	rows, err := dbPool.Query(r.Context(), query, agentUUID)
 	if err != nil {
@@ -431,10 +435,10 @@ func handleResolveApproval(w http.ResponseWriter, r *http.Request) {
 	}
 	var webhookURL string
 	err = dbPool.QueryRow(r.Context(), `
-		SELECT a.webhook_url 
-		FROM agents a 
-		JOIN approval_requests ar ON a.id = ar.agent_id 
-		WHERE ar.id = $1`, payload.ID).Scan(&webhookURL)
+SELECT a.webhook_url 
+FROM agents a 
+JOIN approval_requests ar ON a.id = ar.agent_id 
+WHERE ar.id = $1`, payload.ID).Scan(&webhookURL)
 	if err == nil && webhookURL != "" {
 		sendWebhook(webhookURL, map[string]interface{}{
 			"event":      "approval_resolved",
