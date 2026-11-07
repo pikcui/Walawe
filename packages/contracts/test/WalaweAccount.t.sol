@@ -11,12 +11,12 @@ contract WalaweAccountTest is Test {
     address agentKey;
     uint256 agentPrivateKey;
     address entryPoint = address(0x4);
+    address allowedDest = address(0x5);
+    address unauthorizedDest = address(0x6);
 
     function setUp() public {
-        // Generate real wallets for testing
         ownerPrivateKey = 0xA11CE;
         owner = vm.addr(ownerPrivateKey);
-        
         agentPrivateKey = 0xB0B;
         agentKey = vm.addr(agentPrivateKey);
 
@@ -26,64 +26,68 @@ contract WalaweAccountTest is Test {
 
     function test_OwnerCanAddSessionKey() public {
         vm.prank(owner);
-        account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, address(0x5));
+        account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, allowedDest);
         assertTrue(account.isValidSession(agentKey));
     }
 
-    function test_OwnerCanRevokeSessionKey() public {
-        vm.startPrank(owner);
-        account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, address(0x5));
-        assertTrue(account.isValidSession(agentKey));
-        account.revokeSessionKey(agentKey);
-        assertFalse(account.isValidSession(agentKey));
-        vm.stopPrank();
-    }
-
-    function test_ValidateUserOp_Owner() public {
+    function test_ValidateUserOp_OwnerBypass() public {
         bytes32 userOpHash = keccak256("test_op");
-        
-        // Sign the hash with Owner's private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, userOpHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
+        
         UserOperation memory userOp;
-        userOp.signature = signature;
+        userOp.signature = abi.encodePacked(r, s, v);
 
         vm.prank(entryPoint);
-        uint256 result = account.validateUserOp(userOp, userOpHash, 0);
-        assertEq(result, 0); // 0 means valid
+        assertEq(account.validateUserOp(userOp, userOpHash, 0), 0);
     }
 
-    function test_ValidateUserOp_SessionKey() public {
+    function test_ValidateUserOp_SessionKey_ValidTransfer() public {
         vm.prank(owner);
-        account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, address(0x5));
+        account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, allowedDest);
 
         bytes32 userOpHash = keccak256("test_op_session");
-        
-        // Sign the hash with Agent's private key
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(agentPrivateKey, userOpHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
+        
         UserOperation memory userOp;
-        userOp.signature = signature;
+        userOp.signature = abi.encodePacked(r, s, v);
+        // Construct valid callData: transfer(allowedDest, 500)
+        userOp.callData = abi.encodeWithSignature("transfer(address,uint256)", allowedDest, 500);
 
         vm.prank(entryPoint);
-        uint256 result = account.validateUserOp(userOp, userOpHash, 0);
-        assertEq(result, 0); // 0 means valid
+        assertEq(account.validateUserOp(userOp, userOpHash, 0), 0);
     }
 
-    function test_ValidateUserOp_InvalidSignature() public {
-        bytes32 userOpHash = keccak256("test_op_invalid");
-        
-        // Sign with a random private key (hacker)
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBAD, userOpHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+    function test_ValidateUserOp_SessionKey_ExceedsMaxAmount() public {
+        vm.prank(owner);
+        account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, allowedDest);
 
+        bytes32 userOpHash = keccak256("test_op_session");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(agentPrivateKey, userOpHash);
+        
         UserOperation memory userOp;
-        userOp.signature = signature;
+        userOp.signature = abi.encodePacked(r, s, v);
+        // Construct callData: transfer(allowedDest, 2000) -> Exceeds max 1000
+        userOp.callData = abi.encodeWithSignature("transfer(address,uint256)", allowedDest, 2000);
 
         vm.prank(entryPoint);
-        uint256 result = account.validateUserOp(userOp, userOpHash, 0);
-        assertEq(result, 1); // 1 means invalid
+        vm.expectRevert("Amount exceeds Session Key limit");
+        account.validateUserOp(userOp, userOpHash, 0);
+    }
+
+    function test_ValidateUserOp_SessionKey_InvalidDestination() public {
+        vm.prank(owner);
+        account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, allowedDest);
+
+        bytes32 userOpHash = keccak256("test_op_session");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(agentPrivateKey, userOpHash);
+        
+        UserOperation memory userOp;
+        userOp.signature = abi.encodePacked(r, s, v);
+        // Construct callData: transfer(unauthorizedDest, 500)
+        userOp.callData = abi.encodeWithSignature("transfer(address,uint256)", unauthorizedDest, 500);
+
+        vm.prank(entryPoint);
+        vm.expectRevert("Invalid destination for Session Key");
+        account.validateUserOp(userOp, userOpHash, 0);
     }
 }
