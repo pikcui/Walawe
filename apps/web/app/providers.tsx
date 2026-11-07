@@ -3,12 +3,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
-import { injected } from 'wagmi/connectors';
+// 1. Impor konektor metaMask, bukan injected
+import { metaMask } from 'wagmi/connectors'; 
 import { useState } from 'react';
 
 const config = createConfig({
   chains: [baseSepolia],
-  connectors: [injected()],
+  // 2. Gunakan metaMask() yang mendukung deep link di mobile
+  connectors: [metaMask()], 
   transports: {
     [baseSepolia.id]: http(),
   },
