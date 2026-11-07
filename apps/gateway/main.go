@@ -69,9 +69,14 @@ func main() {
 	detector = NewAnomalyDetector(rdb, pool)
 
 	mux := newMux()
-	port := ":8080"
-	fmt.Printf("Walawe Gateway running on %s\n", port)
-	log.Fatal(http.ListenAndServe(port, mux))
+
+	// Membaca PORT dari environment variable (untuk Hostless/Cloud Run)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Printf("Walawe Gateway running on :%s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
@@ -258,6 +263,8 @@ VALUES ($1, $2, $3)
 		case streamErr := <-errs:
 			if streamErr != nil {
 				log.Printf("Stream error: %v", streamErr)
+				fmt.Fprintf(w, "data: {\"error\": \"%s\"}\n\n", streamErr.Error())
+				flusher.Flush()
 			}
 			goto Settle
 
