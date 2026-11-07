@@ -2,29 +2,30 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 2.x.x   | :white_check_mark: |
-| 1.x.x   | :x:                |
+| Version | Supported          | Environment |
+| ------- | ------------------ | ----------- |
+| 3.x.x   | :white_check_mark: | Cloud (Live)|
+| 2.x.x   | :x:                | Local/Test  |
+| 1.x.x   | :x:                | Local/Test  |
 
 ## Threat Model
 
 Walawe handles monetary value and autonomous AI agents. We assume the following threat model:
-1. **Compromised Agents:** An agent's API key or session key is stolen. *Mitigation: Scoped session keys with expiration, on-chain budget limits, and rate limiting.*
-2. **Spamming Agents:** An agent tries to DDoS the gateway. *Mitigation: Anomaly detection suspends agents making > 20 requests/minute.*
+1. **Compromised Agents:** An agent's API key or session key is stolen. *Mitigation: Scoped session keys, on-chain budget limits, and rate limiting.*
+2. **Spamming Agents:** An agent tries to DDoS the gateway or drain funds via tiny requests. *Mitigation: Redis-backed Anomaly Detection suspends agents exceeding request or spending limits.*
 3. **Provider Abuse:** An agent attempts to use unauthorized models. *Mitigation: Deterministic Policy Engine allowlists.*
 4. **Replay Attacks:** An attacker replays a valid x402 payment signature. *Mitigation: Idempotency keys based on the cryptographic signature.*
 
-## Security Controls (v2)
+## Security Controls (v3)
 
+- **Cloud Infrastructure:** Deployed on Vercel (Frontend), SnapDeploy (Backend), Neon (Postgres), and Upstash (Redis). All connections use TLS/SSL.
+- **Environment Variables:** Secrets are managed securely via the cloud provider dashboards (not hardcoded).
 - **Double-Entry Ledger:** All money movement is tracked as balanced debits and credits. Balances are never updated directly.
 - **Deterministic Policies:** Spending rules (daily/monthly limits, allowlists) are enforced by Go code, not LLMs.
-- **Human Approvals:** High-value transactions require manual approval via the Admin Dashboard.
-- **Anomaly Detection:** In-memory tracking of request timestamps to auto-suspend spamming agents.
-- **Smart Contract Security:** ERC-4337 `validateUserOp` uses OpenZeppelin's `ECDSA.recover` to verify cryptographic signatures on-chain.
-- **Hash-Chained Audit Log:** Every spend is recorded in an append-only log where each entry's hash depends on the previous one.
-- **Docker Secrets:** Sensitive credentials (DB password, JWT secret) are passed via `.env` files, never hardcoded in Dockerfiles.
-- **Admin JWT Auth:** Dashboard is protected by JSON Web Tokens.
+- **RBAC:** Admin-only routes (like `/admin/users` and `/admin/approvals/resolve`) are protected by JWT role validation.
+- **Human Approvals:** High-value transactions require manual approval via the Dashboard.
+- **Smart Contract Security:** ERC-4337 `validateUserOp` uses OpenZeppelin's `ECDSA.recover` and enforces session key limits (`maxAmountPerTx`, `allowedDestination`).
+- **Hash-Chained Audit Log:** Every spend is recorded in an append-only log.
 
 ## Reporting a Vulnerability
 
