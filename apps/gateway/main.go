@@ -107,6 +107,7 @@ func newMux() http.Handler {
 	mux.HandleFunc("/admin/login", handleAdminLogin)
 	mux.HandleFunc("/admin/register", handleAdminRegister)
 	mux.HandleFunc("/admin/deposit", AdminOnlyMiddleware(handleAdminDeposit))
+	mux.HandleFunc("/admin/deposit-web3", AdminOnlyMiddleware(handleWeb3Deposit))
 
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
