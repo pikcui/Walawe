@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings" // Tambahan import untuk membersihkan string
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,8 +47,11 @@ func main() {
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
 
-	// Perbaikan: Menggunakan redis.ParseURL untuk Upstash
+	// Perbaikan: Membersihkan tanda kutip dan spasi jika tidak sengaja tersalin
 	redisURL := os.Getenv("REDIS_URL")
+	redisURL = strings.ReplaceAll(redisURL, "\"", "")
+	redisURL = strings.TrimSpace(redisURL)
+
 	var rdb *redis.Client
 	if redisURL == "" {
 		rdb = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
