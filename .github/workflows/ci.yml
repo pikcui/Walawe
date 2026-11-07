@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Validate docker-compose.yml
-        run: cp .env.example .env && docker compose config --quiet
+        run: cp .env.example .env && docker compose -f docker-compose.dev.yml config --quiet
 
   secrets:
     name: secret scan
