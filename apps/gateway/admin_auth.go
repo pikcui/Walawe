@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context" // Tambahan import context
 	"encoding/json"
 	"net/http"
 	"os"
@@ -42,7 +43,6 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var storedHash, role, agentID string
-	// Query juga mengambil agent_id
 	err := dbPool.QueryRow(r.Context(), "SELECT password_hash, role, COALESCE(agent_id::text, '') FROM users WHERE email = $1", creds.Email).Scan(&storedHash, &role, &agentID)
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
@@ -58,7 +58,7 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &CustomClaims{
 		Role:    role,
-		AgentID: agentID, // Masukkan AgentID ke JWT
+		AgentID: agentID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   creds.Email,
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
@@ -96,7 +96,9 @@ func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		// PERBAIKAN: Suntikkan AgentID ke dalam context
+		ctx := context.WithValue(r.Context(), agentIDKey, claims.AgentID)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
 
@@ -125,7 +127,9 @@ func AdminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		// PERBAIKAN: Suntikkan AgentID ke dalam context
+		ctx := context.WithValue(r.Context(), agentIDKey, claims.AgentID)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
 
@@ -156,7 +160,6 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Secara otomatis assign ke agen default untuk demo, nanti bisa diubah
 	defaultAgentID := "11111111-1111-1111-1111-111111111111"
 	_, err = dbPool.Exec(r.Context(),
 		"INSERT INTO users (email, password_hash, role, agent_id) VALUES ($1, $2, $3, $4::uuid)",
