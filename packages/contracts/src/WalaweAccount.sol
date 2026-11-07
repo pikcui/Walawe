@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-// Mock IAccount interface for ERC-4337
 interface IAccount {
     function validateUserOp(
         UserOperation calldata userOp,
@@ -71,7 +70,7 @@ contract WalaweAccount is IAccount {
         return sessionKeys[key].active && block.timestamp < sessionKeys[key].validUntil;
     }
 
-    // ERC-4337 Core Function with REAL ECDSA Verification
+    // ERC-4337 Core Function with REAL ECDSA Verification and Limits Enforcement
     function validateUserOp(
         UserOperation calldata userOp,
         bytes32 userOpHash,
@@ -79,19 +78,35 @@ contract WalaweAccount is IAccount {
     ) external view override returns (uint256 validationData) {
         require(msg.sender == entryPoint, "Caller must be EntryPoint");
 
-        // 1. Verify Signature using OpenZeppelin ECDSA
+        // 1. Verify Signature
         address signer = ECDSA.recover(userOpHash, userOp.signature);
         
-        // 2. Check if signer is owner (Master Key)
+        // 2. Owner bypasses limits (Master Key)
         if (signer == owner) {
-            return 0; // Valid signature
+            return 0; 
         }
 
-        // 3. Check if signer is a valid Session Key
+        // 3. Session Key must be active and not expired
         if (isValidSession(signer)) {
-            return 0; // Valid session key
+            // Decode callData to check target and amount
+            // We assume the callData is a standard transfer(address, uint256)
+            // function selector for transfer is 0xa9059cbb
+            if (userOp.callData.length >= 68) {
+                bytes4 selector = bytes4(userOp.callData[0:4]);
+                if (selector == bytes4(0xa9059cbb)) {
+                    // Decode the address and amount from callData
+                    (address to, uint256 amount) = abi.decode(userOp.callData[4:], (address, uint256));
+                    
+                    SessionKey memory sk = sessionKeys[signer];
+                    require(to == sk.allowedDestination, "Invalid destination for Session Key");
+                    require(amount <= sk.maxAmountPerTx, "Amount exceeds Session Key limit");
+                    return 0; 
+                }
+            }
+            // If we can't parse the callData or it's not a transfer, reject for safety
+            return 1; 
         }
 
-        return 1; // Invalid
+        return 1; // Invalid signature
     }
 }
