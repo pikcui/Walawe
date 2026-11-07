@@ -7,18 +7,20 @@ func Evaluate(req Request, usage Usage, policy Policy) Decision {
 		return Decision{Allowed: false, Reason: "agent_suspended"}
 	}
 
-	// 2. Cek Allowlist Model (Jika daftar tidak kosong)
-	if len(policy.AllowedModels) > 0 {
-		allowed := false
-		for _, m := range policy.AllowedModels {
-			if m == req.Model {
-				allowed = true
-				break
-			}
+	// 2. Cek Allowlist Model (FAIL-CLOSED: Jika kosong, tolak!)
+	if len(policy.AllowedModels) == 0 {
+		return Decision{Allowed: false, Reason: "model_not_allowed_empty_policy"}
+	}
+
+	allowed := false
+	for _, m := range policy.AllowedModels {
+		if m == req.Model {
+			allowed = true
+			break
 		}
-		if !allowed {
-			return Decision{Allowed: false, Reason: "model_not_allowed"}
-		}
+	}
+	if !allowed {
+		return Decision{Allowed: false, Reason: "model_not_allowed"}
 	}
 
 	// 3. Cek Limit Per Request
