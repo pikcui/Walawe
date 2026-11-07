@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function Login() {
       const res = await fetch(`${API_URL}/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (!res.ok) {
@@ -30,7 +30,7 @@ export default function Login() {
       localStorage.setItem('walawe_token', data.token);
       router.push('/');
     } catch (err) {
-      setError('Login failed. Please check your credentials.');
+      setError('Login failed. Please check your email and password.');
     }
   };
 
@@ -44,11 +44,11 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-400 mb-1">Username</label>
+            <label className="block text-sm font-medium text-neutral-400 mb-1">Email</label>
             <input 
-              type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500 transition-colors"
               required
             />
