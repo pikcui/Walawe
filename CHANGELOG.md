@@ -1,31 +1,20 @@
 # Changelog
 
-## [0.5.0-beta] - 2026-11-06
+## [3.0.0-alpha] - 2026-11-07
 ### Added
-- **Base Sepolia Deployment:** Successfully deployed `WalaweAccount.sol` to Base Sepolia Testnet.
-- **True On-Chain Interaction:** Added Session Key directly to the deployed smart contract using Foundry `cast`.
-- **Dynamic API URL:** Frontend now uses `NEXT_PUBLIC_API_URL` for better deployment flexibility.
+- **Cloud Deployment:** Fully deployed to Vercel, SnapDeploy, Neon, and Upstash.
+- **RBAC (Role-Based Access Control):** JWT claims now include roles (admin/viewer). Admin endpoints are protected.
+- **User Management:** Admins can create new users via the Dashboard.
+- **Persistent Anomaly Detection:** Replaced in-memory maps with Redis for tracking spam and spending rates.
+- **Accurate Cost Calculation:** Ledger usage aggregation now excludes active holds.
 
-### Security
-- Enforced agent suspension status by reading from DB before Policy Evaluation.
+### Fixed
+- **Redis Connection:** Fixed Upstash connection parsing by stripping quotes and using `redis.ParseURL`.
+- **CI/CD:** Resolved `gitleaks` token requirement and branch protection bypass.
 
-## [0.4.0-alpha] - 2026-11-06
+## [2.0.0-beta] - 2026-11-06
 ### Added
-- Dashboard Charts (Recharts).
-- Anomaly Detection (in-memory).
-- Policy Usage Aggregation.
-- OpenZeppelin ECDSA for Smart Contract signatures.
-
-## [0.3.0-alpha] - 2026-11-06
-### Added
-- Webhook delivery for resolved approvals.
-- Bring-Your-Own-Key (BYOK) for OpenAI and Anthropic.
-- x402 Mock Payment Middleware and EIP-191 signature verification.
-- Human Approval mechanism and Admin Dashboard UI.
-- JWT Authentication for Admin endpoints.
-- ERC-4337 Smart Account implementation.
-- Docker and Docker Compose configuration.
-
-## [0.1.0] - 2026-11-05
-### Added
-- Initial MVP release (Ledger, Policy Engine, Basic Gateway, Next.js UI).
+- **Base Sepolia Deployment:** Deployed `WalaweAccount.sol` to Testnet.
+- **Smart Contract ECDSA:** Implemented real signature verification.
+- **Dashboard Charts:** Recharts integration for spending trends.
+- **Docker Secrets:** `.env` management.

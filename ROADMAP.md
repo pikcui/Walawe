@@ -2,37 +2,30 @@
 
 This document outlines the future direction of Walawe. We believe in transparency, especially regarding security and production readiness.
 
-## Status: v2.0.0-beta (Completed)
-We have successfully completed the v2 Beta phase, bringing Walawe to the real Blockchain.
-- [x] **Policy Engine Usage Aggregation:** Real database queries for daily/monthly limits.
-- [x] **Smart Contract ECDSA:** Replaced mock signatures with OpenZeppelin's `ECDSA.recover`.
-- [x] **Docker Secrets:** Implemented `.env` management for sensitive credentials.
-- [x] **Anomaly Detection:** Auto-suspension for spamming agents.
-- [x] **Dashboard Charts:** 7-day spending trend visualization.
-- [x] **Admin JWT Auth:** Protected admin routes and UI.
-- [x] **Multi-Provider:** OpenAI and Anthropic support with BYOK.
-- [x] **Dynamic Dashboard URL:** Environment variables for API URL.
-- [x] **Base Sepolia Deployment:** Deployed `WalaweAccount.sol` to Base Sepolia Testnet.
-- [x] **True On-Chain Interaction:** Successfully executed `addSessionKey` via Foundry `cast send` on the live testnet.
+## Status: v3.0.0-alpha (Production Live)
+We have successfully deployed Walawe to the Cloud. The system is now live and handling real requests.
+- [x] **Base Sepolia Deployment:** Deployed `WalaweAccount.sol`.
+- [x] **True On-Chain Interaction:** Executed `addSessionKey` on the live testnet.
+- [x] **Persistent Anomaly Detection:** Redis-backed spam and spending rate detection.
+- [x] **RBAC:** Admin/Viewer roles with JWT and DB-backed login.
+- [x] **User Management:** Admin can create new users from the Dashboard.
+- [x] **Cloud Deployment:** Frontend on Vercel, Backend on SnapDeploy, DB on Neon, Cache on Upstash.
+- [x] **Accurate Cost Calculation:** Excluding active holds from usage limits.
+- [x] **Provider Error Handling:** Robust SSE parsing for OpenAI and Anthropic.
 
-## v3.0.0 - Scale, Mainnet & Ecosystem (Future)
-Features required before going to Mainnet with real funds.
+## v4.0.0 - Mainnet & Advanced Autonomy (Next)
+Our focus shifts to true on-chain settlement and advanced AI safety.
 
-### 🚀 Infrastructure & Scale
-- [ ] **Persistent Anomaly Detection:** Move in-memory request tracking to Redis to survive server restarts and support horizontal scaling.
-- [ ] **Secret Management:** Replace `.env` files with a dedicated Secret Manager (e.g., AWS Secrets Manager, HashiCorp Vault).
-- [ ] **Advanced Anomaly Detection:** Implement moving averages and behavior analysis.
+### ⛓️ True Web3 Integration
+- [ ] **Bundler Integration:** Connect the Go Gateway to an ERC-4337 Bundler (e.g., Pimlico, Stackup) to submit real `UserOperations`.
+- [ ] **On-chain x402 Settlement:** Move x402 payments from off-chain signatures to fully on-chain USDC transfers via smart accounts.
+- [ ] **Mainnet Deployment:** Deploy to Base Mainnet after a successful audit.
 
-### 🛡️ Security & Auditing
-- [ ] **Session Key Limits Enforcement:** Parse `callData` inside the Solidity `validateUserOp` to strictly enforce `maxAmountPerTx` and `allowedDestination`.
-- [ ] **Accurate Cost Calculation:** Fix the Ledger aggregation to only count settled expenses, not active `reserves` (holds).
-- [ ] **Third-Party Smart Contract Audit.**
-
-### ⛓️ Web3 Ecosystem
-- [ ] **Mainnet Deployment:** Deploy to Base Mainnet after successful Testnet phase and audit.
+### 🧠 Advanced AI Safety & Scale
+- [ ] **Behavioral Anomaly Detection:** Detect complex patterns (e.g., sudden switch to expensive models at 3 AM).
+- [ ] **Secret Management:** Move from environment variables to a dedicated Vault/KMS.
 - [ ] **Multi-Chain Support:** Add Solana support for x402 payments.
 
 ### 📊 Product Features
-- [ ] **RBAC & SSO:** Role-Based Access Control for organizations.
 - [ ] **Official SDK Releases:** Publish Python and TypeScript SDKs to PyPI and npm.
-- [ ] **Landing Page:** Create a public-facing marketing page.
+- [ ] **Advanced Analytics:** ClickHouse integration for large-scale usage reporting.
