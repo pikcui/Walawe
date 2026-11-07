@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pikcui/Walawe/packages/ledger"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -181,7 +183,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // ============================================================
-// FASE 3: REGISTRASI (POST /admin/register)
+// FASE 3: REGISTRASI & TOP-UP
 // ============================================================
 
 type registerRequest struct {
@@ -392,5 +394,61 @@ func handleAdminRegister(w http.ResponseWriter, r *http.Request) {
 		OrganizationID: orgID,
 		APIKey:         plainKey,
 		Message:        "Simpan API key ini. Hanya ditampilkan sekali.",
+	})
+}
+
+// handleAdminDeposit menambahkan saldo agen via entri Ledger (Zero Mock, No Direct Balance).
+func handleAdminDeposit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
+		return
+	}
+
+	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
+	if !ok || agentIDStr == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		AmountMicroUSD int64  `json:"amount_micro_usd"`
+		Note           string `json:"note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+
+	if req.AmountMicroUSD <= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_amount"})
+		return
+	}
+
+	agentID := ledger.AccountID(agentIDStr)
+	requestID := fmt.Sprintf("dep_%d", time.Now().UnixNano())
+
+	// Catat ke Ledger: Debit dari System, Credit ke Agent
+	err := dbStore.Do(r.Context(), func(tx ledger.Tx) error {
+		_, err := tx.InsertEntry(ledger.Entry{
+			Debit:          "system_treasury",
+			Credit:         agentID,
+			Amount:         ledger.MicroUSD(req.AmountMicroUSD),
+			RefType:        "deposit",
+			RefID:          requestID,
+			IdempotencyKey: requestID,
+		})
+		return err
+	})
+
+	if err != nil {
+		log.Printf("deposit: ledger failed: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "deposit_failed"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":    "Deposit successful",
+		"deposit_id": requestID,
+		"amount":     req.AmountMicroUSD,
 	})
 }
