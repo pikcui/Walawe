@@ -28,24 +28,28 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  
-  // State untuk Form Add User
+
+  // State untuk Modal Add User
   const [showAddUser, setShowAddUser] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('viewer');
-  
+
+  // State untuk Modal Add Funds (Deposit)
+  const [showAddFunds, setShowAddFunds] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositNote, setDepositNote] = useState('');
+
   const router = useRouter();
 
   const fetchData = async () => {
     const token = localStorage.getItem('walawe_token');
     const role = localStorage.getItem('walawe_role');
-    
+
     if (!token) {
       router.push('/login');
       return;
     }
-    
     setUserRole(role);
 
     try {
@@ -92,19 +96,19 @@ export default function Home() {
       setApprovals((prev) => prev.filter((req) => req.id !== id));
       const res = await fetch(`${API_URL}/admin/approvals/resolve`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ id, action })
       });
-      
+
       if (res.status === 403) {
         alert("Forbidden: You do not have permission to approve requests.");
         fetchData();
         return;
       }
-      
+
       fetchData();
     } catch (err) {
       console.error(err);
@@ -115,11 +119,11 @@ export default function Home() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem('walawe_token');
-    
+
     try {
       const res = await fetch(`${API_URL}/admin/users`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -133,6 +137,46 @@ export default function Home() {
         setNewPassword('');
       } else {
         alert("Failed to create user. Email might already exist.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    }
+  };
+
+  const handleDeposit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('walawe_token');
+    
+    // Konversi input user (desimal) ke Micro-USD (integer) dengan aman
+    const parsedAmount = parseFloat(depositAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+    
+    // Math.round memastikan tidak ada float yang tersisa
+    const microUsd = Math.round(parsedAmount * 1000000);
+
+    try {
+      const res = await fetch(`${API_URL}/admin/deposit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ amount_micro_usd: microUsd, note: depositNote })
+      });
+
+      if (res.ok) {
+        alert("Deposit successful!");
+        setShowAddFunds(false);
+        setDepositAmount('');
+        setDepositNote('');
+        fetchData(); // Refresh saldo
+      } else {
+        const errorData = await res.json();
+        alert(`Deposit failed: ${errorData.error}`);
       }
     } catch (err) {
       console.error(err);
@@ -183,6 +227,50 @@ export default function Home() {
         </div>
       )}
 
+      {/* Modal Add Funds */}
+      {showAddFunds && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setShowAddFunds(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white">
+              <Icons.X />
+            </button>
+            <h2 className="text-xl font-bold text-white mb-2">Top Up Balance</h2>
+            <p className="text-sm text-neutral-500 mb-6">Funds will be recorded immutably in the ledger.</p>
+            <form onSubmit={handleDeposit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Amount (USD)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    min="0.01"
+                    value={depositAmount} 
+                    onChange={e => setDepositAmount(e.target.value)} 
+                    required 
+                    placeholder="10.00"
+                    className="w-full bg-black border border-neutral-800 rounded-lg pl-8 pr-4 py-2 text-white focus:outline-none focus:border-neutral-500" 
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Note (Optional)</label>
+                <input 
+                  type="text" 
+                  value={depositNote} 
+                  onChange={e => setDepositNote(e.target.value)} 
+                  placeholder="Initial deposit"
+                  className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" 
+                />
+              </div>
+              <button type="submit" className="w-full bg-white text-black font-medium py-2.5 rounded-lg hover:bg-neutral-200 transition-colors mt-6">
+                Confirm Deposit
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <nav className="border-b border-neutral-800 bg-black/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -193,9 +281,14 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             {userRole === 'admin' && (
-              <button onClick={() => setShowAddUser(true)} className="text-xs font-medium bg-white text-black px-3 py-1.5 rounded-md hover:bg-neutral-200 transition-colors">
-                + Add User
-              </button>
+              <>
+                <button onClick={() => setShowAddFunds(true)} className="text-xs font-medium bg-neutral-800 text-white border border-neutral-700 px-3 py-1.5 rounded-md hover:bg-neutral-700 transition-colors">
+                  + Add Funds
+                </button>
+                <button onClick={() => setShowAddUser(true)} className="text-xs font-medium bg-white text-black px-3 py-1.5 rounded-md hover:bg-neutral-200 transition-colors">
+                  + Add User
+                </button>
+              </>
             )}
             <div className="text-xs font-medium text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
               {userRole === 'admin' ? 'Admin Portal' : 'Viewer Mode'}
@@ -208,7 +301,7 @@ export default function Home() {
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-12 space-y-8">
-        
+
         <div className={fadeIn}>
           <h1 className="text-3xl font-bold text-white tracking-tighter">Overview</h1>
           <p className="text-neutral-500 text-sm mt-1">Manage your agent wallet and authorize pending actions.</p>
@@ -258,7 +351,7 @@ export default function Home() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                   <XAxis dataKey="date" stroke="#888" tick={{ fill: '#888', fontSize: 12 }} tickLine={false} axisLine={false} />
                   <YAxis stroke="#888" tick={{ fill: '#888', fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(value) => `$${(value / 1000000).toFixed(3)}`} />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ backgroundColor: '#171717', border: '1px solid #333', borderRadius: '8px' }}
                     itemStyle={{ color: '#fff' }}
                     formatter={(value: number) => [`$${(value / 1000000).toFixed(4)}`, 'Spent']}
@@ -308,7 +401,7 @@ export default function Home() {
                       {req.status}
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4 bg-black p-4 rounded-lg border border-neutral-800">
                     <div>
                       <p className="text-xs text-neutral-500 mb-1">MODEL</p>
@@ -322,13 +415,13 @@ export default function Home() {
 
                   {userRole === 'admin' && (
                     <div className="flex gap-3">
-                      <button 
+                      <button
                         onClick={() => resolveRequest(req.id, 'approve')}
                         className="flex-1 bg-white text-black py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                       >
                         <Icons.Check /> Approve
                       </button>
-                      <button 
+                      <button
                         onClick={() => resolveRequest(req.id, 'reject')}
                         className="flex-1 bg-transparent border border-neutral-700 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-800 hover:border-neutral-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                       >
@@ -373,13 +466,13 @@ export default function Home() {
                       {userRole === 'admin' && (
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <button 
+                            <button
                               onClick={() => resolveRequest(req.id, 'approve')}
                               className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-200 active:scale-95 transition-all"
                             >
                               Approve
                             </button>
-                            <button 
+                            <button
                               onClick={() => resolveRequest(req.id, 'reject')}
                               className="bg-transparent border border-neutral-700 text-white px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-800 active:scale-95 transition-all"
                             >
