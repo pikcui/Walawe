@@ -148,14 +148,12 @@ export default function Home() {
     e.preventDefault();
     const token = localStorage.getItem('walawe_token');
     
-    // Konversi input user (desimal) ke Micro-USD (integer) dengan aman
     const parsedAmount = parseFloat(depositAmount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       alert("Please enter a valid amount");
       return;
     }
     
-    // Math.round memastikan tidak ada float yang tersisa
     const microUsd = Math.round(parsedAmount * 1000000);
 
     try {
@@ -173,7 +171,7 @@ export default function Home() {
         setShowAddFunds(false);
         setDepositAmount('');
         setDepositNote('');
-        fetchData(); // Refresh saldo
+        fetchData();
       } else {
         const errorData = await res.json();
         alert(`Deposit failed: ${errorData.error}`);
@@ -272,36 +270,35 @@ export default function Home() {
       )}
 
       <nav className="border-b border-neutral-800 bg-black/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-3">
             <div className="w-7 h-7 rounded bg-white text-black flex items-center justify-center font-bold text-sm tracking-tighter">
               W
             </div>
-            <span className="text-lg font-semibold tracking-tight text-white">Walawe</span>
+            <span className="text-lg font-semibold tracking-tight text-white hidden sm:block">Walawe</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {userRole === 'admin' && (
               <>
-                <button onClick={() => setShowAddFunds(true)} className="text-xs font-medium bg-neutral-800 text-white border border-neutral-700 px-3 py-1.5 rounded-md hover:bg-neutral-700 transition-colors">
-                  + Add Funds
+                <button onClick={() => setShowAddFunds(true)} className="whitespace-nowrap text-[10px] md:text-xs font-medium bg-neutral-800 text-white border border-neutral-700 px-2 md:px-3 py-1.5 rounded-md hover:bg-neutral-700 transition-colors">
+                  + Funds
                 </button>
-                <button onClick={() => setShowAddUser(true)} className="text-xs font-medium bg-white text-black px-3 py-1.5 rounded-md hover:bg-neutral-200 transition-colors">
-                  + Add User
+                <button onClick={() => setShowAddUser(true)} className="whitespace-nowrap text-[10px] md:text-xs font-medium bg-white text-black px-2 md:px-3 py-1.5 rounded-md hover:bg-neutral-200 transition-colors">
+                  + User
                 </button>
               </>
             )}
-            <div className="text-xs font-medium text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
+            <div className="hidden md:block text-xs font-medium text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
               {userRole === 'admin' ? 'Admin Portal' : 'Viewer Mode'}
             </div>
-            <button onClick={handleLogout} className="text-xs text-neutral-400 hover:text-white transition-colors">
+            <button onClick={handleLogout} className="text-[10px] md:text-xs text-neutral-400 hover:text-white transition-colors ml-1 md:ml-0">
               Logout
             </button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-12 space-y-8">
-
+      <main className="max-w-6xl mx-auto px-4 md:px-6 py-12 space-y-8">
         <div className={fadeIn}>
           <h1 className="text-3xl font-bold text-white tracking-tighter">Overview</h1>
           <p className="text-neutral-500 text-sm mt-1">Manage your agent wallet and authorize pending actions.</p>
