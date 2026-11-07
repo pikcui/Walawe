@@ -46,7 +46,6 @@ func main() {
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
 
-	// Inisialisasi Redis
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
 		redisURL = "localhost:6379"
@@ -268,6 +267,23 @@ Settle:
 		if err := tx.PutHold(h); err != nil {
 			return err
 		}
+
+		// KOREKSI: Catat biaya aktual yang terpakai ke 'external' sebagai 'settle'
+		if actualCost > 0 {
+			_, err = tx.InsertEntry(ledger.Entry{
+				Debit:          holdAcc,
+				Credit:         "external",
+				Amount:         actualCost,
+				RefType:        "settle",
+				RefID:          requestID,
+				IdempotencyKey: "settle_cost_" + requestID,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		// Kembalikan sisa hold ke agen
 		if returnAmount > 0 {
 			_, err = tx.InsertEntry(ledger.Entry{
 				Debit:          holdAcc,
@@ -275,7 +291,7 @@ Settle:
 				Amount:         returnAmount,
 				RefType:        "settle_return",
 				RefID:          requestID,
-				IdempotencyKey: "settle_" + requestID,
+				IdempotencyKey: "settle_ret_" + requestID,
 			})
 			return err
 		}
@@ -287,6 +303,7 @@ Settle:
 	}
 }
 
+// KOREKSI: Hanya hitung 'settle' dan 'x402_payment'. Abaikan 'reserve' (hold).
 func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.Usage, error) {
 	var spentToday, spentMonth int64
 	query := `
@@ -294,7 +311,7 @@ func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.
 			COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as spent_today,
 			COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as spent_month
 		FROM entries
-		WHERE debit = $1 AND ref_type IN ('reserve', 'x402_payment')
+		WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
 	`
 	err := dbPool.QueryRow(ctx, query, string(agentID)).Scan(&spentToday, &spentMonth)
 	if err != nil {
@@ -329,7 +346,7 @@ func handleGetUsage(w http.ResponseWriter, r *http.Request) {
 			TO_CHAR(created_at, 'YYYY-MM-DD') as usage_date,
 			COALESCE(SUM(amount), 0) as total
 		FROM entries
-		WHERE debit = $1 AND ref_type IN ('reserve', 'x402_payment')
+		WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
 		AND created_at >= CURRENT_DATE - INTERVAL '7 days'
 		GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
 		ORDER BY usage_date ASC
