@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings" // Tambahan import untuk membersihkan string
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -47,7 +47,6 @@ func main() {
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
 
-	// Perbaikan: Membersihkan tanda kutip dan spasi jika tidak sengaja tersalin
 	redisURL := os.Getenv("REDIS_URL")
 	redisURL = strings.ReplaceAll(redisURL, "\"", "")
 	redisURL = strings.TrimSpace(redisURL)
@@ -101,6 +100,7 @@ func newMux() http.Handler {
 
 	mux.HandleFunc("/admin/login", handleAdminLogin)
 
+	// Endpoint ini sekarang dilindungi JWT dan akan membaca agent_id dari token
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
 	mux.HandleFunc("/admin/usage", AdminAuthMiddleware(handleGetUsage))
@@ -148,14 +148,12 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var agentStatus string
 	err := dbPool.QueryRow(r.Context(), "SELECT status FROM agents WHERE id = $1::uuid", agentIDStr).Scan(&agentStatus)
 	if err != nil {
-		log.Printf("Failed to get agent status: %v", err)
 		http.Error(w, "Agent not found", http.StatusUnauthorized)
 		return
 	}
 
 	usage, err := getAgentUsage(r.Context(), agentID)
 	if err != nil {
-		log.Printf("Failed to get usage: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -339,22 +337,33 @@ WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
 }
 
 func handleGetBalance(w http.ResponseWriter, r *http.Request) {
+	// Baca agent_id dari JWT (via context)
+	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
+	if !ok || agentIDStr == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var balance int64
-	agentUUID := "11111111-1111-1111-1111-111111111111"
-	err := dbPool.QueryRow(r.Context(), "SELECT balance FROM accounts WHERE id = $1", agentUUID).Scan(&balance)
+	err := dbPool.QueryRow(r.Context(), "SELECT balance FROM accounts WHERE id = $1", agentIDStr).Scan(&balance)
 	if err != nil {
 		http.Error(w, "Failed to get balance", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"agent_id":          agentUUID,
+		"agent_id":          agentIDStr,
 		"balance_micro_usd": balance,
 	})
 }
 
 func handleGetUsage(w http.ResponseWriter, r *http.Request) {
-	agentUUID := "11111111-1111-1111-1111-111111111111"
+	// Baca agent_id dari JWT (via context)
+	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
+	if !ok || agentIDStr == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	query := `
 SELECT 
@@ -367,9 +376,8 @@ GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
 ORDER BY usage_date ASC
 `
 
-	rows, err := dbPool.Query(r.Context(), query, agentUUID)
+	rows, err := dbPool.Query(r.Context(), query, agentIDStr)
 	if err != nil {
-		log.Printf("Query error: %v", err)
 		http.Error(w, "Failed to get usage data", http.StatusInternalServerError)
 		return
 	}
@@ -449,8 +457,6 @@ WHERE ar.id = $1`, payload.ID).Scan(&webhookURL)
 			"request_id": payload.ID,
 			"status":     status,
 		})
-	} else if err != nil {
-		log.Printf("Warning: could not find webhook_url for approval %s: %v", payload.ID, err)
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Success"))

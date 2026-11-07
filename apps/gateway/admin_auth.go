@@ -20,9 +20,9 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// CustomClaims menambahkan Role ke dalam token
 type CustomClaims struct {
-	Role string `json:"role"`
+	Role    string `json:"role"`
+	AgentID string `json:"agent_id"`
 	jwt.RegisteredClaims
 }
 
@@ -41,25 +41,24 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Cari user di database
-	var storedHash, role string
-	err := dbPool.QueryRow(r.Context(), "SELECT password_hash, role FROM users WHERE email = $1", creds.Email).Scan(&storedHash, &role)
+	var storedHash, role, agentID string
+	// Query juga mengambil agent_id
+	err := dbPool.QueryRow(r.Context(), "SELECT password_hash, role, COALESCE(agent_id::text, '') FROM users WHERE email = $1", creds.Email).Scan(&storedHash, &role, &agentID)
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// 2. Verifikasi password
 	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(creds.Password))
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// 3. Buat JWT Token dengan Role
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &CustomClaims{
-		Role: role,
+		Role:    role,
+		AgentID: agentID, // Masukkan AgentID ke JWT
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   creds.Email,
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
@@ -77,7 +76,6 @@ func handleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": tokenString, "role": role})
 }
 
-// AdminAuthMiddleware memvalidasi JWT untuk semua rute admin
 func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -102,7 +100,6 @@ func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// AdminOnlyMiddleware membatasi akses HANYA untuk role 'admin'
 func AdminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -132,7 +129,6 @@ func AdminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// handleCreateUser membuat user baru (Hanya bisa diakses Admin)
 func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -154,17 +150,17 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
 
-	// Simpan ke database
+	// Secara otomatis assign ke agen default untuk demo, nanti bisa diubah
+	defaultAgentID := "11111111-1111-1111-1111-111111111111"
 	_, err = dbPool.Exec(r.Context(),
-		"INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3)",
-		req.Email, string(hashedPassword), req.Role)
+		"INSERT INTO users (email, password_hash, role, agent_id) VALUES ($1, $2, $3, $4::uuid)",
+		req.Email, string(hashedPassword), req.Role, defaultAgentID)
 
 	if err != nil {
 		http.Error(w, "Failed to create user (email might already exist)", http.StatusConflict)
