@@ -90,10 +90,15 @@ func newMux() http.Handler {
 	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0x8a21C2f8F19123de2bcc5F7932d2351eba1Db6Eb")(handlePremiumData))))
 
 	mux.HandleFunc("/admin/login", handleAdminLogin)
+
+	// Read-only routes for Admin & Viewer
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
-	mux.HandleFunc("/admin/approvals/resolve", AdminAuthMiddleware(handleResolveApproval))
 	mux.HandleFunc("/admin/usage", AdminAuthMiddleware(handleGetUsage))
+
+	// Admin-only routes
+	mux.HandleFunc("/admin/approvals/resolve", AdminOnlyMiddleware(handleResolveApproval))
+	mux.HandleFunc("/admin/users", AdminOnlyMiddleware(handleCreateUser))
 
 	return corsMiddleware(mux)
 }
@@ -268,7 +273,6 @@ Settle:
 			return err
 		}
 
-		// KOREKSI: Catat biaya aktual yang terpakai ke 'external' sebagai 'settle'
 		if actualCost > 0 {
 			_, err = tx.InsertEntry(ledger.Entry{
 				Debit:          holdAcc,
@@ -283,7 +287,6 @@ Settle:
 			}
 		}
 
-		// Kembalikan sisa hold ke agen
 		if returnAmount > 0 {
 			_, err = tx.InsertEntry(ledger.Entry{
 				Debit:          holdAcc,
@@ -303,7 +306,6 @@ Settle:
 	}
 }
 
-// KOREKSI: Hanya hitung 'settle' dan 'x402_payment'. Abaikan 'reserve' (hold).
 func getAgentUsage(ctx context.Context, agentID ledger.AccountID) (policyengine.Usage, error) {
 	var spentToday, spentMonth int64
 	query := `
