@@ -165,6 +165,7 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	writeAuditLog("chat_completion_request", agentIDStr)
 
+	// 1. Ambil status agen
 	var agentStatus string
 	err := dbPool.QueryRow(r.Context(), "SELECT status FROM agents WHERE id = $1::uuid", agentIDStr).Scan(&agentStatus)
 	if err != nil {
@@ -172,22 +173,34 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 2. Ambil aturan policy langsung dari database (ZERO MOCK)
+	var ruleJSON []byte
+	err = dbPool.QueryRow(r.Context(), "SELECT rule_json FROM policies WHERE agent_id = $1::uuid ORDER BY created_at DESC LIMIT 1", agentIDStr).Scan(&ruleJSON)
+	if err != nil {
+		http.Error(w, "Policy not found for this agent", http.StatusForbidden)
+		return
+	}
+
+	var dynamicPolicy policyengine.Policy
+	if err := json.Unmarshal(ruleJSON, &dynamicPolicy); err != nil {
+		log.Printf("Failed to parse policy JSON: %v", err)
+		http.Error(w, "Invalid policy format", http.StatusInternalServerError)
+		return
+	}
+
+	// Timpa status dari tabel agents (jika agen di-suspend, langsung ditolak)
+	dynamicPolicy.Status = agentStatus
+
 	usage, err := getAgentUsage(r.Context(), agentID)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	policy := policyengine.Policy{
-		Status:            agentStatus,
-		MaxCostPerRequest: ledger.MicroUSD(100000),
-		MaxCostPerDay:     ledger.MicroUSD(5000),
-		AllowedModels:     []string{"gpt-4", "claude-3-opus-20240229"},
-		ApprovalThreshold: ledger.MicroUSD(5000),
-	}
 	policyReq := policyengine.Request{Model: req.Model, MaxTokens: req.MaxTokens, EstimatedCost: estimatedCost}
 
-	decision := policyengine.Evaluate(policyReq, usage, policy)
+	// 3. Evaluasi Policy
+	decision := policyengine.Evaluate(policyReq, usage, dynamicPolicy)
 	if !decision.Allowed {
 		if decision.Reason == "require_approval" {
 			_, dbErr := dbPool.Exec(r.Context(), `

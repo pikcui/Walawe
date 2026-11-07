@@ -23,10 +23,10 @@ type Usage struct {
 
 // Policy adalah aturan yang di-set oleh manusia.
 type Policy struct {
-	MaxCostPerRequest ledger.MicroUSD
-	MaxCostPerDay     ledger.MicroUSD
-	MaxCostPerMonth   ledger.MicroUSD
-	AllowedModels     []string
-	Status            string
-	ApprovalThreshold ledger.MicroUSD // <-- Tambahan baru
+	MaxCostPerRequest ledger.MicroUSD `json:"max_per_tx_micro_usd"`
+	MaxCostPerDay     ledger.MicroUSD `json:"daily_limit_micro_usd"`
+	MaxCostPerMonth   ledger.MicroUSD `json:"monthly_limit_micro_usd"`
+	AllowedModels     []string        `json:"allowed_models"`
+	Status            string          `json:"-"`
+	ApprovalThreshold ledger.MicroUSD `json:"approval_threshold_micro_usd"`
 }
