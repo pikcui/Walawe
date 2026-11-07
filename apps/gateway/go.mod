@@ -53,3 +53,13 @@ require (
 replace github.com/pikcui/Walawe/packages/providers => ../../packages/providers
 
 replace github.com/pikcui/Walawe/packages/crypto => ../../packages/crypto
+
+replace golang.org/x/crypto => golang.org/x/crypto v0.33.0
+
+replace golang.org/x/sync => golang.org/x/sync v0.11.0
+
+replace golang.org/x/sys => golang.org/x/sys v0.30.0
+
+replace golang.org/x/text => golang.org/x/text v0.22.0
+
+replace golang.org/x/net => golang.org/x/net v0.35.0
