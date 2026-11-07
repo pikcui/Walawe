@@ -100,7 +100,6 @@ func newMux() http.Handler {
 
 	mux.HandleFunc("/admin/login", handleAdminLogin)
 
-	// Endpoint ini sekarang dilindungi JWT dan akan membaca agent_id dari token
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
 	mux.HandleFunc("/admin/usage", AdminAuthMiddleware(handleGetUsage))
@@ -121,6 +120,22 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
+	}
+
+	// 1. Wajib BYOK (Bring Your Own Key)
+	providerKey := r.Header.Get("X-Provider-Key")
+	providerName := r.Header.Get("X-Provider-Name")
+
+	if providerKey == "" {
+		http.Error(w, "Missing X-Provider-Key header. BYOK is mandatory.", http.StatusBadRequest)
+		return
+	}
+
+	var activeProvider providers.Provider
+	if providerName == "anthropic" {
+		activeProvider = providers.NewAnthropicProvider(providerKey)
+	} else {
+		activeProvider = providers.NewOpenAIProvider(providerKey)
 	}
 
 	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
@@ -227,18 +242,6 @@ VALUES ($1, $2, $3)
 		return
 	}
 
-	providerKey := r.Header.Get("X-Provider-Key")
-	providerName := r.Header.Get("X-Provider-Name")
-	var activeProvider providers.Provider
-
-	if providerKey != "" && providerName == "anthropic" {
-		activeProvider = providers.NewAnthropicProvider(providerKey)
-	} else if providerKey != "" {
-		activeProvider = providers.NewOpenAIProvider(providerKey)
-	} else {
-		activeProvider = providers.NewSimulatedProvider()
-	}
-
 	chunks, errs := activeProvider.StreamChat(ctx, req.Model, req.Messages[0].Content)
 	var totalTokens int64 = 0
 
@@ -337,7 +340,6 @@ WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
 }
 
 func handleGetBalance(w http.ResponseWriter, r *http.Request) {
-	// Baca agent_id dari JWT (via context)
 	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
 	if !ok || agentIDStr == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -358,7 +360,6 @@ func handleGetBalance(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetUsage(w http.ResponseWriter, r *http.Request) {
-	// Baca agent_id dari JWT (via context)
 	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
 	if !ok || agentIDStr == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
