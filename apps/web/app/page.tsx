@@ -28,6 +28,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  
+  // State untuk Form Add User
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState('viewer');
+  
   const router = useRouter();
 
   const fetchData = async () => {
@@ -105,6 +112,34 @@ export default function Home() {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('walawe_token');
+    
+    try {
+      const res = await fetch(`${API_URL}/admin/users`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole })
+      });
+
+      if (res.ok) {
+        alert("User created successfully!");
+        setShowAddUser(false);
+        setNewEmail('');
+        setNewPassword('');
+      } else {
+        alert("Failed to create user. Email might already exist.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('walawe_token');
     localStorage.removeItem('walawe_role');
@@ -114,8 +149,40 @@ export default function Home() {
   const fadeIn = `transition-all duration-700 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`;
 
   return (
-    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative">
       
+      {/* Modal Add User */}
+      {showAddUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setShowAddUser(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white">
+              <Icons.X />
+            </button>
+            <h2 className="text-xl font-bold text-white mb-6">Create New User</h2>
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Email</label>
+                <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Password</label>
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1">Role</label>
+                <select value={newRole} onChange={e => setNewRole(e.target.value)} className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500 appearance-none">
+                  <option value="viewer">Viewer</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <button type="submit" className="w-full bg-white text-black font-medium py-2.5 rounded-lg hover:bg-neutral-200 transition-colors mt-6">
+                Create User
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <nav className="border-b border-neutral-800 bg-black/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -125,6 +192,11 @@ export default function Home() {
             <span className="text-lg font-semibold tracking-tight text-white">Walawe</span>
           </div>
           <div className="flex items-center gap-4">
+            {userRole === 'admin' && (
+              <button onClick={() => setShowAddUser(true)} className="text-xs font-medium bg-white text-black px-3 py-1.5 rounded-md hover:bg-neutral-200 transition-colors">
+                + Add User
+              </button>
+            )}
             <div className="text-xs font-medium text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
               {userRole === 'admin' ? 'Admin Portal' : 'Viewer Mode'}
             </div>
@@ -216,7 +288,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Tampilan Mobile (Kartu) */}
           <div className="md:hidden divide-y divide-neutral-800">
             {approvals.length === 0 ? (
               <div className="p-12 text-center flex flex-col items-center gap-3">
@@ -249,7 +320,6 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* TOMBOL HANYA MUNCUL UNTUK ADMIN */}
                   {userRole === 'admin' && (
                     <div className="flex gap-3">
                       <button 
@@ -271,7 +341,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Tampilan Desktop (Tabel) */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-black text-neutral-500 text-xs uppercase tracking-wider font-medium border-b border-neutral-800">
@@ -280,7 +349,6 @@ export default function Home() {
                   <th className="px-6 py-4 font-normal">Model</th>
                   <th className="px-6 py-4 font-normal">Cost</th>
                   <th className="px-6 py-4 font-normal">Status</th>
-                  {/* Kolom aksi disembunyikan jika viewer */}
                   {userRole === 'admin' && <th className="px-6 py-4 text-right font-normal">Actions</th>}
                 </tr>
               </thead>
@@ -302,7 +370,6 @@ export default function Home() {
                           {req.status}
                         </span>
                       </td>
-                      {/* Sel aksi disembunyikan jika viewer */}
                       {userRole === 'admin' && (
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">

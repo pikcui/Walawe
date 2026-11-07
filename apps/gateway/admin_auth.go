@@ -131,3 +131,46 @@ func AdminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		next.ServeHTTP(w, r)
 	}
 }
+
+// handleCreateUser membuat user baru (Hanya bisa diakses Admin)
+func handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.Role != "admin" && req.Role != "viewer" {
+		http.Error(w, "Invalid role", http.StatusBadRequest)
+		return
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+
+	// Simpan ke database
+	_, err = dbPool.Exec(r.Context(),
+		"INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3)",
+		req.Email, string(hashedPassword), req.Role)
+
+	if err != nil {
+		http.Error(w, "Failed to create user (email might already exist)", http.StatusConflict)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("User created successfully"))
+}
