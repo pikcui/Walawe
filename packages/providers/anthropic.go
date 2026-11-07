@@ -28,7 +28,7 @@ func (p *AnthropicProvider) StreamChat(ctx context.Context, model string, prompt
 
 		reqBody := map[string]interface{}{
 			"model":      model,
-			"max_tokens": 4096, // Anthropic requires max_tokens for messages API
+			"max_tokens": 4096,
 			"messages": []map[string]string{
 				{"role": "user", "content": prompt},
 			},
@@ -53,8 +53,19 @@ func (p *AnthropicProvider) StreamChat(ctx context.Context, model string, prompt
 		}
 		defer resp.Body.Close()
 
+		// Jika status bukan 200
 		if resp.StatusCode != http.StatusOK {
-			errs <- fmt.Errorf("anthropic api error: status %d", resp.StatusCode)
+			var errBody struct {
+				Error struct {
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			json.NewDecoder(resp.Body).Decode(&errBody)
+			if errBody.Error.Message != "" {
+				errs <- fmt.Errorf("anthropic api error (%d): %s", resp.StatusCode, errBody.Error.Message)
+			} else {
+				errs <- fmt.Errorf("anthropic api error: status %d", resp.StatusCode)
+			}
 			return
 		}
 
@@ -74,10 +85,14 @@ func (p *AnthropicProvider) StreamChat(ctx context.Context, model string, prompt
 						Text string `json:"text"`
 					} `json:"delta"`
 				}
-				if err := json.Unmarshal([]byte(data), &parsed); err == nil {
-					if parsed.Type == "content_block_delta" && parsed.Delta.Text != "" {
-						chunks <- ResponseChunk{Text: parsed.Delta.Text}
-					}
+
+				// Jika JSON rusak, lewati baris ini
+				if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+					continue
+				}
+
+				if parsed.Type == "content_block_delta" && parsed.Delta.Text != "" {
+					chunks <- ResponseChunk{Text: parsed.Delta.Text}
 				}
 			}
 		}

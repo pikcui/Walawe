@@ -51,8 +51,19 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 		}
 		defer resp.Body.Close()
 
+		// Jika status bukan 200 (misal: 401 Unauthorized atau 429 Rate Limit)
 		if resp.StatusCode != http.StatusOK {
-			errs <- fmt.Errorf("openai api error: status %d", resp.StatusCode)
+			var errBody struct {
+				Error struct {
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			json.NewDecoder(resp.Body).Decode(&errBody)
+			if errBody.Error.Message != "" {
+				errs <- fmt.Errorf("openai api error (%d): %s", resp.StatusCode, errBody.Error.Message)
+			} else {
+				errs <- fmt.Errorf("openai api error: status %d", resp.StatusCode)
+			}
 			return
 		}
 
@@ -72,10 +83,14 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 						} `json:"delta"`
 					} `json:"choices"`
 				}
-				if err := json.Unmarshal([]byte(data), &parsed); err == nil {
-					if len(parsed.Choices) > 0 && parsed.Choices[0].Delta.Content != "" {
-						chunks <- ResponseChunk{Text: parsed.Choices[0].Delta.Content}
-					}
+
+				// Jika JSON rusak, lewati baris ini (jangan crash)
+				if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+					continue
+				}
+
+				if len(parsed.Choices) > 0 && parsed.Choices[0].Delta.Content != "" {
+					chunks <- ResponseChunk{Text: parsed.Choices[0].Delta.Content}
 				}
 			}
 		}
