@@ -23,7 +23,10 @@ export default function Playground() {
     return '';
   });
   
-  const [model, setModel] = useState('meta-llama/llama-3.1-8b-instruct:free');
+  const [model, setModel] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('pg_model') || 'meta-llama/llama-3.1-8b-instruct:free';
+    return 'meta-llama/llama-3.1-8b-instruct:free';
+  });
   
   const [messages, setMessages] = useState<{ role: string; content: string; isError?: boolean }[]>([]);
   const [input, setInput] = useState('');
@@ -32,27 +35,19 @@ export default function Playground() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    localStorage.setItem('pg_walawe_key', walaweApiKey);
-  }, [walaweApiKey]);
+  useEffect(() => { localStorage.setItem('pg_walawe_key', walaweApiKey); }, [walaweApiKey]);
+  useEffect(() => { localStorage.setItem('pg_provider_key', providerKey); }, [providerKey]);
+  useEffect(() => { localStorage.setItem('pg_model', model); }, [model]);
 
-  useEffect(() => {
-    localStorage.setItem('pg_provider_key', providerKey);
-  }, [providerKey]);
-
-  useEffect(() => {
-    if (provider === 'openai') setModel('gpt-4o-mini');
-    if (provider === 'anthropic') setModel('claude-haiku-4-5');
-    if (provider === 'openrouter') setModel('meta-llama/llama-3.1-8b-instruct:free');
-  }, [provider]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const handleProviderChange = (newProvider: 'openai' | 'anthropic' | 'openrouter') => {
+    setProvider(newProvider);
+    if (newProvider === 'openai') setModel('gpt-4o-mini');
+    if (newProvider === 'anthropic') setModel('claude-haiku-4-5');
+    if (newProvider === 'openrouter') setModel('meta-llama/llama-3.1-8b-instruct:free');
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
+  useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +103,6 @@ export default function Playground() {
               const data = line.slice(6);
               try {
                 const parsed = JSON.parse(data);
-                
                 if (parsed.error) {
                   hasError = true;
                   setMessages((prev) => {
@@ -118,7 +112,6 @@ export default function Playground() {
                     return newMsgs;
                   });
                 }
-
                 if (parsed.text) {
                   assistantMsg += parsed.text;
                   setMessages((prev) => {
@@ -170,9 +163,9 @@ export default function Playground() {
           </div>
 
           <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit overflow-x-auto">
-            <button onClick={() => setProvider('openai')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openai' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenAI</button>
-            <button onClick={() => setProvider('anthropic')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'anthropic' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>Anthropic</button>
-            <button onClick={() => setProvider('openrouter')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openrouter' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenRouter</button>
+            <button onClick={() => handleProviderChange('openai')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openai' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenAI</button>
+            <button onClick={() => handleProviderChange('anthropic')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'anthropic' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>Anthropic</button>
+            <button onClick={() => handleProviderChange('openrouter')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openrouter' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenRouter</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
