@@ -15,8 +15,6 @@ const Icons = {
   X: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
   Plus: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>),
   Menu: () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>),
-  Home: () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>),
-  Activity: () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>),
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
@@ -50,15 +48,15 @@ export default function Home() {
   const { connect, connectors, isPending: isConnecting, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
-  const { data: hash, writeContract, isPending } = useWriteContract();
+  
+  // Destructure 'reset' from useWriteContract to fix the stuck state
+  const { data: hash, writeContract, isPending, reset } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   const router = useRouter();
 
   useEffect(() => {
-    if (isConnected) {
-      setShowWalletModal(false);
-    }
+    if (isConnected) setShowWalletModal(false);
   }, [isConnected]);
 
   const fetchData = async () => {
@@ -99,6 +97,7 @@ export default function Home() {
             alert(t.depositSuccess);
             setShowAddFunds(false);
             setDepositAmount('');
+            reset(); // Reset state transaksi agar bisa deposit lagi
             fetchData();
           }
         } catch (err) { console.error(err); }
@@ -106,6 +105,11 @@ export default function Home() {
       submit();
     }
   }, [isConfirmed, hash]);
+
+  // Reset transaction state when modal is closed
+  useEffect(() => {
+    if (!showAddFunds) reset();
+  }, [showAddFunds]);
 
   const resolveRequest = async (id: string, action: 'approve' | 'reject') => {
     const token = localStorage.getItem('walawe_token');
@@ -157,9 +161,7 @@ export default function Home() {
   };
 
   const handleDisconnect = () => {
-    if (confirm("Apakah Anda yakin ingin memutus dompet ini? / Are you sure you want to disconnect?")) {
-      disconnect();
-    }
+    if (confirm("Apakah Anda yakin ingin memutus dompet ini? / Are you sure you want to disconnect?")) disconnect();
   };
 
   const handleLogout = () => { localStorage.clear(); router.push('/login'); };
@@ -167,17 +169,61 @@ export default function Home() {
   const fadeIn = `transition-all duration-700 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`;
 
   return (
-    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative pb-20 md:pb-0">
+    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative">
       
-      {/* MODAL: ADD USER */}
+      {/* SLIDE-IN MOBILE MENU (KIRI) */}
+      {showMobileMenu && (
+        <div className="fixed inset-0 z-[120] flex">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}></div>
+          <div className="relative w-64 bg-neutral-950 h-full border-r border-neutral-800 flex flex-col p-6 shadow-2xl animate-slide-in">
+            <div className="flex justify-between items-center mb-8">
+              <span className="font-bold text-white">Menu</span>
+              <button onClick={() => setShowMobileMenu(false)} className="text-neutral-500 hover:text-white"><Icons.X /></button>
+            </div>
+            
+            <div className="flex flex-col space-y-6">
+              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white">
+                {lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
+              </button>
+              
+              {isConnected && (
+                <div className="flex flex-col space-y-2">
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Wallet</span>
+                  <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 px-3 py-2 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                      <span className="text-xs font-mono text-neutral-300">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                    </div>
+                    <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-xs text-red-400 hover:text-red-300">Putuskan</button>
+                  </div>
+                </div>
+              )}
+
+              {userRole === 'admin' && (
+                <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white">
+                  {t.addUser}
+                </button>
+              )}
+              
+              <div className="pt-6 border-t border-neutral-800 mt-auto">
+                <button onClick={handleLogout} className="text-left text-sm text-red-400 font-medium hover:text-red-300">
+                  {t.logout}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALS */}
       {showAddUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
             <button onClick={() => setShowAddUser(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-xl font-bold text-white mb-6">Create New User</h2>
             <form onSubmit={handleCreateUser} className="space-y-4">
-              <div><label className="block text-sm font-medium text-neutral-400 mb-1">Email</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
-              <div><label className="block text-sm font-medium text-neutral-400 mb-1">Password</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
+              <div><label className="block text-sm font-medium text-neutral-400 mb-1">{t.email}</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
+              <div><label className="block text-sm font-medium text-neutral-400 mb-1">{t.password}</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
               <div>
                 <label className="block text-sm font-medium text-neutral-400 mb-1">Role</label>
                 <select value={newRole} onChange={e => setNewRole(e.target.value)} className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500 appearance-none">
@@ -190,7 +236,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL: ADD FUNDS */}
       {showAddFunds && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
@@ -234,7 +279,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL: WALLETCONNECT */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
@@ -242,11 +286,7 @@ export default function Home() {
             <h2 className="text-xl font-bold text-white mb-2">{t.connectWallet}</h2>
             {connectError && <div className="bg-red-950 border border-red-900 text-red-400 text-xs p-3 rounded mb-4 break-words">Error: {connectError.message}</div>}
             <p className="text-sm text-neutral-500 mb-6">Gunakan WalletConnect untuk terhubung dari browser HP.</p>
-            <button
-              onClick={() => { const wc = connectors.find(c => c.id === 'walletConnect'); if (wc) connect({ connector: wc }); }}
-              disabled={isConnecting}
-              className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-3 px-4 rounded-lg transition-all disabled:opacity-50"
-            >
+            <button onClick={() => { const wc = connectors.find(c => c.id === 'walletConnect'); if (wc) connect({ connector: wc }); }} disabled={isConnecting} className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-3 px-4 rounded-lg transition-all disabled:opacity-50">
               {isConnecting ? <span>Menghubungkan...</span> : <span>Connect with WalletConnect</span>}
             </button>
           </div>
@@ -283,21 +323,11 @@ export default function Home() {
                  <span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 4)}...{address?.slice(-3)}</span>
                </div>
             )}
-            <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="text-white p-1">
+            <button onClick={() => setShowMobileMenu(true)} className="text-white p-1">
               <Icons.Menu />
             </button>
           </div>
         </div>
-
-        {/* Mobile Dropdown Menu */}
-        {showMobileMenu && (
-          <div className="md:hidden absolute top-16 left-0 w-full bg-neutral-950 border-b border-neutral-800 flex flex-col p-4 space-y-4 shadow-xl">
-            <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300">{lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}</button>
-            {userRole === 'admin' && <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300">{t.addUser}</button>}
-            {isConnected && <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-left text-sm text-red-400">Disconnect Wallet</button>}
-            <button onClick={handleLogout} className="text-left text-sm text-neutral-300">{t.logout}</button>
-          </div>
-        )}
       </nav>
 
       {/* MAIN CONTENT */}
@@ -308,7 +338,6 @@ export default function Home() {
         </div>
 
         <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 ${fadeIn}`}>
-          {/* Balance Card */}
           <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800 hover:border-neutral-600 transition-colors duration-300 relative overflow-hidden flex flex-col justify-between">
             <div>
               <p className="text-sm font-medium text-neutral-400 mb-2">{t.totalBalance}</p>
@@ -321,7 +350,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* System Status */}
           <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800 md:col-span-2 flex flex-col justify-center">
             <p className="text-sm font-medium text-neutral-400 mb-2">{t.systemStatus}</p>
             <div className="flex items-center gap-3">
@@ -332,7 +360,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Chart */}
         <div className={`bg-neutral-950 rounded-2xl border border-neutral-800 p-6 ${fadeIn}`}>
           <div className="mb-6"><h2 className="text-lg font-semibold text-white">{t.spendingTrend}</h2></div>
           <div className="h-64 w-full">
@@ -350,7 +377,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* PENDING APPROVALS SECTION (KEMBALI) */}
         <div className={`bg-neutral-950 rounded-2xl border border-neutral-800 overflow-hidden ${fadeIn}`}>
           <div className="p-6 border-b border-neutral-800 flex items-center justify-between">
             <div>
@@ -358,18 +384,13 @@ export default function Home() {
               <p className="text-sm text-neutral-500 mt-1">{t.approvalDesc}</p>
             </div>
             {approvals.length > 0 && (
-              <div className="flex items-center gap-2 text-neutral-400 text-sm">
-                <Icons.Clock /><span>{approvals.length} waiting</span>
-              </div>
+              <div className="flex items-center gap-2 text-neutral-400 text-sm"><Icons.Clock /><span>{approvals.length} waiting</span></div>
             )}
           </div>
 
           <div className="md:hidden divide-y divide-neutral-800">
             {approvals.length === 0 ? (
-              <div className="p-12 text-center flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center border border-neutral-800"><Icons.Check /></div>
-                <p className="text-neutral-500 text-sm">{t.noApprovals}</p>
-              </div>
+              <div className="p-12 text-center flex flex-col items-center gap-3"><div className="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center border border-neutral-800"><Icons.Check /></div><p className="text-neutral-500 text-sm">{t.noApprovals}</p></div>
             ) : (
               approvals.map((req) => (
                 <div key={req.id} className="p-6 space-y-5 hover:bg-neutral-900/30 transition-colors">
@@ -425,21 +446,7 @@ export default function Home() {
             </table>
           </div>
         </div>
-
       </main>
-
-      {/* BOTTOM NAV (Mobile) */}
-      <nav className="md:hidden fixed bottom-0 w-full bg-neutral-950 border-t border-neutral-800 flex justify-around items-center h-16 z-40">
-        <button className="flex flex-col items-center text-white active:scale-90 transition-transform">
-          <Icons.Home />
-          <span className="text-[10px] mt-1 font-medium">Home</span>
-        </button>
-        <button className="flex flex-col items-center text-neutral-500 hover:text-white active:scale-90 transition-transform">
-          <Icons.Activity />
-          <span className="text-[10px] mt-1 font-medium">Activity</span>
-        </button>
-      </nav>
-
     </div>
   );
 }

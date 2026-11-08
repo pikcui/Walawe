@@ -11,66 +11,95 @@ export default function LandingPage() {
   useEffect(() => setMounted(true), []);
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden flex flex-col justify-center items-center px-6">
+    <div className="min-h-screen bg-black text-white relative flex flex-col font-sans selection:bg-white selection:text-black">
       
-      {/* Animated Mesh Gradient Background */}
-      <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600 blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-[40%] left-[30%] w-[30%] h-[30%] rounded-full bg-teal-500 blur-[120px] animate-pulse" style={{ animationDelay: '4s' }}></div>
+      {/* Background Grid Pattern (Bebas AI Slop) */}
+      <div className="absolute inset-0 z-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]">
+        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-blue-500 opacity-20 blur-[100px]"></div>
       </div>
 
-      {/* Top Navigation */}
-      <nav className="absolute top-0 w-full flex justify-between items-center px-6 py-6 z-20">
+      {/* Navbar */}
+      <nav className="relative z-20 w-full max-w-6xl mx-auto px-6 py-6 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-white text-black flex items-center justify-center font-bold text-lg">W</div>
           <span className="text-xl font-bold tracking-tight">Walawe</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <button 
             onClick={() => setLang(lang === 'en' ? 'id' : 'en')}
-            className="text-xs font-medium text-neutral-400 hover:text-white transition-colors border border-neutral-800 px-3 py-1.5 rounded-full backdrop-blur-md"
+            className="text-xs font-medium text-neutral-400 hover:text-white transition-colors border border-neutral-800 px-3 py-1.5 rounded-md"
           >
             {lang === 'en' ? '🇮🇩 ID' : '🇬🇧 EN'}
           </button>
-          <Link href="/login" className="text-sm font-medium text-neutral-300 hover:text-white transition-colors">
+          <Link href="/login" className="text-sm font-medium text-neutral-300 hover:text-white transition-colors active:scale-95">
             {t.login}
           </Link>
         </div>
       </nav>
 
-      {/* Hero Content */}
-      <div className={`relative z-10 max-w-4xl text-center space-y-8 transition-all duration-1000 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-tight">
-          {t.heroTitle.split(' ').map((word, i) => (
-            <span key={i} className={word === 'AI' || word === 'Agent.' || word === 'Agents.' ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-300' : ''}>
-              {word}{' '}
-            </span>
-          ))}
-        </h1>
-        <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mx-auto">
-          {t.heroSubtitle}
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
-          <Link 
-            href="/register" 
-            className="px-8 py-4 bg-white text-black font-bold rounded-full hover:bg-neutral-200 hover:scale-105 active:scale-95 transition-all duration-300 shadow-[0_0_40px_rgba(255,255,255,0.3)]"
-          >
-            {t.getStarted}
-          </Link>
-          <Link 
-            href="/login" 
-            className="px-8 py-4 bg-transparent border border-neutral-700 text-white font-bold rounded-full hover:bg-neutral-900 hover:scale-105 active:scale-95 transition-all duration-300"
-          >
-            {t.login}
-          </Link>
+      {/* Hero Section */}
+      <main className="relative z-10 flex-grow flex flex-col items-center justify-center px-6 text-center max-w-4xl mx-auto mt-20 md:mt-32">
+        <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-xs font-medium text-neutral-300">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            v4 Alpha is live on Base Sepolia
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-tight max-w-3xl">
+            {t.heroTitle}
+          </h1>
+          
+          <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mx-auto">
+            {t.heroSubtitle}
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+            <Link 
+              href="/register" 
+              className="px-8 py-4 bg-white text-black font-bold rounded-lg hover:bg-neutral-200 active:scale-95 transition-all duration-200"
+            >
+              {t.getStarted}
+            </Link>
+            <Link 
+              href="/login" 
+              className="px-8 py-4 bg-neutral-900 border border-neutral-800 text-white font-bold rounded-lg hover:bg-neutral-800 active:scale-95 transition-all duration-200"
+            >
+              {t.login}
+            </Link>
+          </div>
         </div>
-      </div>
 
-      {/* Footer note */}
-      <div className="absolute bottom-6 text-xs text-neutral-600 z-10">
-        Built for the Autonomous Future.
-      </div>
+        {/* Features Grid */}
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 mt-24 w-full transition-all duration-1000 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className="bg-neutral-950 border border-neutral-800 p-6 rounded-xl text-left">
+            <div className="w-10 h-10 rounded-lg bg-neutral-900 flex items-center justify-center mb-4 border border-neutral-800">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+            </div>
+            <h3 className="font-semibold text-white mb-2">{t.feature1Title}</h3>
+            <p className="text-sm text-neutral-500">{t.feature1Desc}</p>
+          </div>
+          
+          <div className="bg-neutral-950 border border-neutral-800 p-6 rounded-xl text-left">
+            <div className="w-10 h-10 rounded-lg bg-neutral-900 flex items-center justify-center mb-4 border border-neutral-800">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            </div>
+            <h3 className="font-semibold text-white mb-2">{t.feature2Title}</h3>
+            <p className="text-sm text-neutral-500">{t.feature2Desc}</p>
+          </div>
+
+          <div className="bg-neutral-950 border border-neutral-800 p-6 rounded-xl text-left">
+            <div className="w-10 h-10 rounded-lg bg-neutral-900 flex items-center justify-center mb-4 border border-neutral-800">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+            </div>
+            <h3 className="font-semibold text-white mb-2">{t.feature3Title}</h3>
+            <p className="text-sm text-neutral-500">{t.feature3Desc}</p>
+          </div>
+        </div>
+      </main>
+
+      <footer className="relative z-10 w-full text-center py-8 text-xs text-neutral-600">
+        © 2026 Walawe. Built for the Autonomous Future.
+      </footer>
     </div>
   );
 }
