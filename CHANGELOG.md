@@ -35,3 +35,16 @@
 - **Transaction Stuck State:** Resolved an issue where the "Check Wallet..." state persisted after a successful Web3 deposit.
 - **Missing Modals:** Restored Add Funds and Add User modals that were accidentally removed during UI refactoring.
 - **Go Version:** Hard-pinned backend `go.mod` to 1.23.0 to ensure Docker CI compatibility.
+
+## [v4.1.0] - 2026-11-08
+### Added
+- **Agent Playground:** Interactive UI to test AI agents using BYOK.
+- **New Providers:** Direct support for Google Gemini and Groq.
+- **Modern Dashboard:** Replaced rigid cards with a seamless layout and Area Charts.
+- **API Key Management:** UI to generate, list, and revoke API keys.
+
+### Fixed
+- **Create User Logic:** Fixed hardcoded `agent_id` in Add User feature.
+- **Layout Overflow:** Fixed chart clipping on the left side and locked Playground scrolling.
+- **Currency Formatting:** Improved display of Micro-USD balances (2-4 decimals).
+- **Redis Connectivity:** Added robust error handling for Redis connections.
