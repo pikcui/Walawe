@@ -10,7 +10,7 @@ const Icons = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
 export default function Playground() {
-  const [provider, setProvider] = useState<'openai' | 'anthropic'>('openai');
+  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'openrouter'>('openai');
   const [providerKey, setProviderKey] = useState('');
   const [model, setModel] = useState('gpt-4o-mini');
   
@@ -21,10 +21,10 @@ export default function Playground() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Update default model when provider changes
   useEffect(() => {
     if (provider === 'openai') setModel('gpt-4o-mini');
     if (provider === 'anthropic') setModel('claude-haiku-4-5');
+    if (provider === 'openrouter') setModel('meta-llama/llama-3-8b-instruct:free');
   }, [provider]);
 
   const scrollToBottom = () => {
@@ -95,7 +95,7 @@ export default function Playground() {
                   });
                 }
               } catch (e) {
-                // Abaikan chunk yang belum lengkap
+                // Abaikan parsing error pada chunk yang belum lengkap
               }
             }
           }
@@ -119,31 +119,22 @@ export default function Playground() {
         
         {/* Header Settings */}
         <div className="p-4 border-b border-neutral-800 bg-black/50 space-y-4">
-          <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit">
-            <button 
-              onClick={() => setProvider('openai')} 
-              className={`flex-1 md:flex-none px-6 py-2 text-sm font-medium rounded-md transition-colors ${provider === 'openai' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
-            >
-              OpenAI
-            </button>
-            <button 
-              onClick={() => setProvider('anthropic')} 
-              className={`flex-1 md:flex-none px-6 py-2 text-sm font-medium rounded-md transition-colors ${provider === 'anthropic' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
-            >
-              Anthropic
-            </button>
+          <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit overflow-x-auto">
+            <button onClick={() => setProvider('openai')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openai' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenAI</button>
+            <button onClick={() => setProvider('anthropic')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'anthropic' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>Anthropic</button>
+            <button onClick={() => setProvider('openrouter')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openrouter' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenRouter</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-2">
-                <Icons.Key /> {provider === 'openai' ? 'OpenAI' : 'Anthropic'} Provider Key (BYOK)
+                <Icons.Key /> {provider} Provider Key (BYOK)
               </label>
               <input 
                 type="password" 
                 value={providerKey} 
                 onChange={e => setProviderKey(e.target.value)} 
-                placeholder={provider === 'openai' ? 'sk-proj-...' : 'sk-ant-...'} 
+                placeholder={provider === 'openai' ? 'sk-proj-...' : provider === 'anthropic' ? 'sk-ant-...' : 'sk-or-v1-...'} 
                 className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
               />
             </div>
