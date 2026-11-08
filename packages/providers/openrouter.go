@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -15,7 +15,7 @@ type OpenRouterProvider struct {
 }
 
 func NewOpenRouterProvider(apiKey string) *OpenRouterProvider {
-	return &OpenRouterProvider{apiKey: apiKey}
+	return &OpenRouterProvider{apiKey: strings.TrimSpace(apiKey)}
 }
 
 func (p *OpenRouterProvider) StreamChat(ctx context.Context, model string, prompt string) (<-chan ResponseChunk, <-chan error) {
@@ -26,7 +26,6 @@ func (p *OpenRouterProvider) StreamChat(ctx context.Context, model string, promp
 		defer close(chunks)
 		defer close(errs)
 
-		// Hardcode URL khusus OpenRouter
 		baseURL := "https://openrouter.ai/api/v1"
 
 		reqBody := map[string]interface{}{
@@ -49,11 +48,10 @@ func (p *OpenRouterProvider) StreamChat(ctx context.Context, model string, promp
 			return
 		}
 
+		// Header yang sangat ketat untuk OpenRouter
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)
-
-		// Header wajib/opsional untuk OpenRouter
-		req.Header.Set("HTTP-Referer", "https://walawe.dev")
+		req.Header.Set("HTTP-Referer", "https://walawe-amber.vercel.app")
 		req.Header.Set("X-Title", "Walawe")
 
 		client := &http.Client{}
@@ -65,7 +63,14 @@ func (p *OpenRouterProvider) StreamChat(ctx context.Context, model string, promp
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			errs <- errors.New("openrouter error: " + resp.Status)
+			// Baca body error untuk debugging
+			var errBody struct {
+				Error struct {
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			_ = json.NewDecoder(resp.Body).Decode(&errBody)
+			errs <- fmt.Errorf("openrouter error: %s - %s", resp.Status, errBody.Error.Message)
 			return
 		}
 
