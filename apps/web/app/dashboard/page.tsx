@@ -41,7 +41,6 @@ export default function Home() {
   const [showWalletModal, setShowWalletModal] = useState(false);
 
   const { address, isConnected, chainId } = useAccount();
-  // Tambahkan error di sini
   const { connect, connectors, isPending: isConnecting, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
@@ -229,34 +228,38 @@ export default function Home() {
         </div>
       )}
 
-      {/* Modal Hubungkan Dompet */}
+      {/* Modal Hubungkan Dompet (HANYA WALLETCONNECT) */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
             <button onClick={() => setShowWalletModal(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-xl font-bold text-white mb-2">Hubungkan Dompet</h2>
             
-            {/* TAMPILKAN ERROR DISINI */}
             {connectError && (
               <div className="bg-red-950 border border-red-900 text-red-400 text-xs p-3 rounded mb-4 break-words">
                 Gagal: {connectError.message}
               </div>
             )}
 
-            <div className="space-y-3">
-              {connectors.map((connector) => (
-                <button
-                  key={connector.uid}
-                  // JANGAN TUTUP MODAL SEBELUM PROSES SELESAI
-                  onClick={() => { connect({ connector }); }}
-                  disabled={isConnecting}
-                  className="w-full flex items-center justify-between bg-neutral-900 border border-neutral-800 hover:border-neutral-600 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <span>{connector.name}</span>
-                  {isConnecting && <span className="text-xs text-neutral-400">Menghubungkan...</span>}
-                </button>
-              ))}
-            </div>
+            <p className="text-sm text-neutral-500 mb-6">Gunakan WalletConnect untuk terhubung dari browser HP.</p>
+
+            <button
+              onClick={() => { 
+                const wc = connectors.find(c => c.id === 'walletConnect');
+                if (wc) connect({ connector: wc }); 
+              }}
+              disabled={isConnecting}
+              className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isConnecting ? (
+                <span>Menghubungkan...</span>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/></svg>
+                  Connect with WalletConnect
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
