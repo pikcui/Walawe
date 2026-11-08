@@ -118,12 +118,12 @@ func newMux() http.Handler {
 	mux.HandleFunc("/admin/deposit", AdminOnlyMiddleware(handleAdminDeposit))
 	mux.HandleFunc("/admin/deposit-web3", AdminOnlyMiddleware(handleWeb3Deposit))
 
-	// API Keys Management (Routes Bersih)
+	// API Keys Management
 	mux.HandleFunc("/admin/api-keys", AdminOnlyMiddleware(handleGetAPIKeys))
 	mux.HandleFunc("/admin/api-keys/create", AdminOnlyMiddleware(handleCreateAPIKey))
 	mux.HandleFunc("/admin/api-keys/revoke", AdminOnlyMiddleware(handleRevokeAPIKey))
-	mux.HandleFunc("/admin/policy", AdminOnlyMiddleware(handleGetPolicy))
-	mux.HandleFunc("/admin/policy/update", AdminOnlyMiddleware(handleUpdatePolicy))
+
+	// Policy Management
 	mux.HandleFunc("/admin/policy", AdminOnlyMiddleware(handleGetPolicy))
 	mux.HandleFunc("/admin/policy/update", AdminOnlyMiddleware(handleUpdatePolicy))
 
