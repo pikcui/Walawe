@@ -23,7 +23,6 @@ export default function Playground() {
     return '';
   });
   
-  // INGAT MODEL YANG TERAKHIR DIPILIH
   const [model, setModel] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('pg_model') || 'meta-llama/llama-3.1-8b-instruct:free';
     return 'meta-llama/llama-3.1-8b-instruct:free';
@@ -36,12 +35,10 @@ export default function Playground() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // SIMPAN PERUBAHAN KE LOCALSTORAGE
   useEffect(() => { localStorage.setItem('pg_walawe_key', walaweApiKey); }, [walaweApiKey]);
   useEffect(() => { localStorage.setItem('pg_provider_key', providerKey); }, [providerKey]);
   useEffect(() => { localStorage.setItem('pg_model', model); }, [model]);
 
-  // Hanya ubah model default saat tombol provider DIKLIK manual
   const handleProviderChange = (newProvider: 'openai' | 'anthropic' | 'openrouter') => {
     setProvider(newProvider);
     if (newProvider === 'openai') setModel('gpt-4o-mini');
