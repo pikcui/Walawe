@@ -7,6 +7,7 @@ import { useAccount, useConnect, useDisconnect, useWriteContract, useWaitForTran
 import { parseUnits } from 'viem';
 import { baseSepolia } from 'wagmi/chains';
 import { useLanguage } from '../context/LanguageContext';
+import Playground from '../components/Playground';
 
 const Icons = {
   Wallet: () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>),
@@ -33,7 +34,7 @@ const parseJwt = (token: string) => {
 
 export default function Home() {
   const { t, lang, setLang } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'policy'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'policy' | 'playground'>('overview');
   
   const [balance, setBalance] = useState<number | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
@@ -337,6 +338,7 @@ export default function Home() {
               <button onClick={() => { setActiveTab('overview'); setShowMobileMenu(false); }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'}`}>Overview</button>
               <button onClick={() => { setActiveTab('api-keys'); setShowMobileMenu(false); }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'}`}>API Keys</button>
               <button onClick={() => { setActiveTab('policy'); setShowMobileMenu(false); }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'policy' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'}`}>Policy Engine</button>
+              <button onClick={() => { setActiveTab('playground'); setShowMobileMenu(false); }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'playground' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'}`}>Playground</button>
             </div>
             
             <div className="flex flex-col space-y-6 flex-grow border-t border-neutral-800 pt-6">
@@ -438,6 +440,7 @@ export default function Home() {
               <button onClick={() => setActiveTab('overview')} className={`text-sm font-medium transition-colors ${activeTab === 'overview' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Overview</button>
               <button onClick={() => setActiveTab('api-keys')} className={`text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>API Keys</button>
               <button onClick={() => setActiveTab('policy')} className={`text-sm font-medium transition-colors ${activeTab === 'policy' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Policy</button>
+              <button onClick={() => setActiveTab('playground')} className={`text-sm font-medium transition-colors ${activeTab === 'playground' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Playground</button>
             </div>
           </div>
           
@@ -622,6 +625,10 @@ export default function Home() {
               )}
             </div>
           </div>
+        )}
+
+        {activeTab === 'playground' && (
+          <Playground />
         )}
 
         {activeTab === 'policy' && (
