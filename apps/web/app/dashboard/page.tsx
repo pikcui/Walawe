@@ -41,9 +41,10 @@ export default function Home() {
   const [showWalletModal, setShowWalletModal] = useState(false);
 
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isPending: isConnecting } = useConnect();
+  // Tambahkan error di sini
+  const { connect, connectors, isPending: isConnecting, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
-  const { switchChain } = useSwitchChain(); // Hook untuk ganti jaringan
+  const { switchChain } = useSwitchChain();
   const { data: hash, writeContract, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
@@ -75,6 +76,31 @@ export default function Home() {
   };
 
   useEffect(() => { setMounted(true); fetchData(); }, []);
+
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      const submitWeb3Deposit = async () => {
+        const token = localStorage.getItem('walawe_token');
+        try {
+          const res = await fetch(`${API_URL}/admin/deposit-web3`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ tx_hash: hash })
+          });
+          if (res.ok) {
+            alert("Saldo Web3 berhasil ditambahkan ke Ledger!");
+            setShowAddFunds(false);
+            setDepositAmount('');
+            fetchData();
+          } else {
+            const errorData = await res.json();
+            alert(`Gagal verifikasi Web3: ${errorData.error}`);
+          }
+        } catch (err) { console.error(err); }
+      };
+      submitWeb3Deposit();
+    }
+  }, [isConfirmed, hash]);
 
   const resolveRequest = async (id: string, action: 'approve' | 'reject') => {
     const token = localStorage.getItem('walawe_token');
@@ -116,17 +142,9 @@ export default function Home() {
   const handleWeb3Deposit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isConnected) { setShowWalletModal(true); return; }
-    
-    // CEK JARINGAN (NETWORK)
     if (chainId !== baseSepolia.id) {
-      try {
-        await switchChain({ chainId: baseSepolia.id });
-      } catch (err) {
-        alert("Gagal pindah jaringan. Silakan ganti manual ke Base Sepolia di MetaMask.");
-        return;
-      }
+      try { await switchChain({ chainId: baseSepolia.id }); } catch (err) { alert("Gagal pindah jaringan."); return; }
     }
-
     const parsedAmount = parseFloat(depositAmount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) { alert("Masukkan nominal yang valid"); return; }
     const amountInUnits = parseUnits(depositAmount, 6);
@@ -216,12 +234,21 @@ export default function Home() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
             <button onClick={() => setShowWalletModal(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
-            <h2 className="text-xl font-bold text-white mb-6">Hubungkan Dompet</h2>
+            <h2 className="text-xl font-bold text-white mb-2">Hubungkan Dompet</h2>
+            
+            {/* TAMPILKAN ERROR DISINI */}
+            {connectError && (
+              <div className="bg-red-950 border border-red-900 text-red-400 text-xs p-3 rounded mb-4 break-words">
+                Gagal: {connectError.message}
+              </div>
+            )}
+
             <div className="space-y-3">
               {connectors.map((connector) => (
                 <button
                   key={connector.uid}
-                  onClick={() => { connect({ connector }); setShowWalletModal(false); }}
+                  // JANGAN TUTUP MODAL SEBELUM PROSES SELESAI
+                  onClick={() => { connect({ connector }); }}
                   disabled={isConnecting}
                   className="w-full flex items-center justify-between bg-neutral-900 border border-neutral-800 hover:border-neutral-600 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
                 >
