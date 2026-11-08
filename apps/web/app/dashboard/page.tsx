@@ -33,23 +33,19 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [showMobileMenu, setShowMobileMenu] = useState(false); // Hamburger menu state
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // State Modal Add User
   const [showAddUser, setShowAddUser] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('viewer');
 
-  // State Modal Add Funds
   const [showAddFunds, setShowAddFunds] = useState(false);
   const [depositMode, setDepositMode] = useState<'manual' | 'web3'>('manual');
   const [depositAmount, setDepositAmount] = useState('');
   
-  // State Modal Wallet
   const [showWalletModal, setShowWalletModal] = useState(false);
 
-  // Web3 Hooks
   const { address, isConnected, chainId } = useAccount();
   const { connect, connectors, isPending: isConnecting, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
@@ -59,7 +55,6 @@ export default function Home() {
 
   const router = useRouter();
 
-  // OTOMATIS TUTUP MODAL WALLET SAAT TERHUBUNG
   useEffect(() => {
     if (isConnected) {
       setShowWalletModal(false);
@@ -91,7 +86,6 @@ export default function Home() {
 
   useEffect(() => { setMounted(true); fetchData(); }, []);
 
-  // Web3 Deposit Success Listener
   useEffect(() => {
     if (isConfirmed && hash) {
       const submit = async () => {
@@ -112,6 +106,18 @@ export default function Home() {
       submit();
     }
   }, [isConfirmed, hash]);
+
+  const resolveRequest = async (id: string, action: 'approve' | 'reject') => {
+    const token = localStorage.getItem('walawe_token');
+    try {
+      setApprovals((prev) => prev.filter((req) => req.id !== id));
+      const res = await fetch(`${API_URL}/admin/approvals/resolve`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id, action })
+      });
+      if (res.status === 403) { alert("Forbidden: You do not have permission to approve requests."); fetchData(); return; }
+      fetchData();
+    } catch (err) { console.error(err); fetchData(); }
+  };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,7 +156,6 @@ export default function Home() {
     } catch (err) { console.error(err); }
   };
 
-  // Konfirmasi sebelum memutus dompet
   const handleDisconnect = () => {
     if (confirm("Apakah Anda yakin ingin memutus dompet ini? / Are you sure you want to disconnect?")) {
       disconnect();
@@ -344,6 +349,83 @@ export default function Home() {
             ) : <div className="h-full flex items-center justify-center text-neutral-500 text-sm">{t.noSpending}</div>}
           </div>
         </div>
+
+        {/* PENDING APPROVALS SECTION (KEMBALI) */}
+        <div className={`bg-neutral-950 rounded-2xl border border-neutral-800 overflow-hidden ${fadeIn}`}>
+          <div className="p-6 border-b border-neutral-800 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-white tracking-tight">{t.pendingApprovals}</h2>
+              <p className="text-sm text-neutral-500 mt-1">{t.approvalDesc}</p>
+            </div>
+            {approvals.length > 0 && (
+              <div className="flex items-center gap-2 text-neutral-400 text-sm">
+                <Icons.Clock /><span>{approvals.length} waiting</span>
+              </div>
+            )}
+          </div>
+
+          <div className="md:hidden divide-y divide-neutral-800">
+            {approvals.length === 0 ? (
+              <div className="p-12 text-center flex flex-col items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center border border-neutral-800"><Icons.Check /></div>
+                <p className="text-neutral-500 text-sm">{t.noApprovals}</p>
+              </div>
+            ) : (
+              approvals.map((req) => (
+                <div key={req.id} className="p-6 space-y-5 hover:bg-neutral-900/30 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1"><p className="text-xs text-neutral-500 font-mono">AGENT ID</p><p className="text-sm text-white font-mono">{req.agent_id.substring(0, 8)}...</p></div>
+                    <div className="px-2.5 py-1 text-xs font-medium rounded border border-neutral-700 bg-neutral-900 text-neutral-300">{req.status}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 bg-black p-4 rounded-lg border border-neutral-800">
+                    <div><p className="text-xs text-neutral-500 mb-1">MODEL</p><p className="text-sm font-medium text-white">{req.model}</p></div>
+                    <div><p className="text-xs text-neutral-500 mb-1">COST</p><p className="text-sm font-mono text-white">${(req.cost / 1000000).toFixed(4)}</p></div>
+                  </div>
+                  {userRole === 'admin' && (
+                    <div className="flex gap-3">
+                      <button onClick={() => resolveRequest(req.id, 'approve')} className="flex-1 bg-white text-black py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"><Icons.Check /> {t.approve}</button>
+                      <button onClick={() => resolveRequest(req.id, 'reject')} className="flex-1 bg-transparent border border-neutral-700 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-neutral-800 hover:border-neutral-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"><Icons.X /> {t.reject}</button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-black text-neutral-500 text-xs uppercase tracking-wider font-medium border-b border-neutral-800">
+                <tr>
+                  <th className="px-6 py-4 font-normal">Agent ID</th><th className="px-6 py-4 font-normal">Model</th><th className="px-6 py-4 font-normal">Cost</th><th className="px-6 py-4 font-normal">Status</th>
+                  {userRole === 'admin' && <th className="px-6 py-4 text-right font-normal">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-800">
+                {approvals.length === 0 ? (
+                  <tr><td colSpan={userRole === 'admin' ? 5 : 4} className="px-6 py-16 text-center text-neutral-500">{t.noApprovals}</td></tr>
+                ) : (
+                  approvals.map((req) => (
+                    <tr key={req.id} className="hover:bg-neutral-900/40 transition-colors group">
+                      <td className="px-6 py-4 font-mono text-neutral-400 text-xs">{req.agent_id}</td>
+                      <td className="px-6 py-4 font-medium text-white">{req.model}</td>
+                      <td className="px-6 py-4 font-mono text-neutral-300">${(req.cost / 1000000).toFixed(4)}</td>
+                      <td className="px-6 py-4"><span className="px-2.5 py-1 text-xs rounded-md border border-neutral-700 bg-neutral-900 text-neutral-300 font-medium">{req.status}</span></td>
+                      {userRole === 'admin' && (
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => resolveRequest(req.id, 'approve')} className="bg-white text-black px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-200 active:scale-95 transition-all">{t.approve}</button>
+                            <button onClick={() => resolveRequest(req.id, 'reject')} className="bg-transparent border border-neutral-700 text-white px-4 py-1.5 rounded-md text-xs font-medium hover:bg-neutral-800 active:scale-95 transition-all">{t.reject}</button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </main>
 
       {/* BOTTOM NAV (Mobile) */}
