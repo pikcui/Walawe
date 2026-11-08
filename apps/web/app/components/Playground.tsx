@@ -11,31 +11,46 @@ const Icons = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
 export default function Playground() {
-  const [walaweApiKey, setWalaweApiKey] = useState('');
-  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'openrouter'>('openrouter');
-  const [providerKey, setProviderKey] = useState('');
-  const [model, setModel] = useState('meta-llama/llama-3-8b-instruct:free');
+  const [walaweApiKey, setWalaweApiKey] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('pg_walawe_key') || '';
+    return '';
+  });
   
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'openrouter'>('openrouter');
+  
+  const [providerKey, setProviderKey] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('pg_provider_key') || '';
+    return '';
+  });
+  
+  // INGAT MODEL YANG TERAKHIR DIPILIH
+  const [model, setModel] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('pg_model') || 'meta-llama/llama-3.1-8b-instruct:free';
+    return 'meta-llama/llama-3.1-8b-instruct:free';
+  });
+  
+  const [messages, setMessages] = useState<{ role: string; content: string; isError?: boolean }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (provider === 'openai') setModel('gpt-4o-mini');
-    if (provider === 'anthropic') setModel('claude-haiku-4-5');
-    if (provider === 'openrouter') setModel('meta-llama/llama-3-8b-instruct:free');
-  }, [provider]);
+  // SIMPAN PERUBAHAN KE LOCALSTORAGE
+  useEffect(() => { localStorage.setItem('pg_walawe_key', walaweApiKey); }, [walaweApiKey]);
+  useEffect(() => { localStorage.setItem('pg_provider_key', providerKey); }, [providerKey]);
+  useEffect(() => { localStorage.setItem('pg_model', model); }, [model]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Hanya ubah model default saat tombol provider DIKLIK manual
+  const handleProviderChange = (newProvider: 'openai' | 'anthropic' | 'openrouter') => {
+    setProvider(newProvider);
+    if (newProvider === 'openai') setModel('gpt-4o-mini');
+    if (newProvider === 'anthropic') setModel('claude-haiku-4-5');
+    if (newProvider === 'openrouter') setModel('meta-llama/llama-3.1-8b-instruct:free');
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
+  useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +70,7 @@ export default function Playground() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${walaweApiKey}`, // MENGGUNAKAN API KEY WALAWE (wlw_...)
+          'Authorization': `Bearer ${walaweApiKey}`,
           'X-Provider-Key': providerKey,
           'X-Provider-Name': provider,
         },
@@ -74,6 +89,7 @@ export default function Playground() {
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let assistantMsg = '';
+      let hasError = false;
 
       setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
@@ -90,6 +106,15 @@ export default function Playground() {
               const data = line.slice(6);
               try {
                 const parsed = JSON.parse(data);
+                if (parsed.error) {
+                  hasError = true;
+                  setMessages((prev) => {
+                    const newMsgs = [...prev];
+                    newMsgs[newMsgs.length - 1].content = `Error: ${parsed.error}`;
+                    newMsgs[newMsgs.length - 1].isError = true;
+                    return newMsgs;
+                  });
+                }
                 if (parsed.text) {
                   assistantMsg += parsed.text;
                   setMessages((prev) => {
@@ -98,15 +123,20 @@ export default function Playground() {
                     return newMsgs;
                   });
                 }
-              } catch (e) {
-                // Abaikan parsing error pada chunk yang belum lengkap
-              }
+              } catch (e) {}
             }
           }
         }
       }
+      
+      if (assistantMsg === '' && !hasError) {
+        setMessages((prev) => prev.slice(0, -1));
+        setError("AI tidak mengembalikan jawaban (mungkin model sedang sibuk).");
+      }
+
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan sistem.');
+      setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
     }
@@ -121,9 +151,7 @@ export default function Playground() {
 
       <div className="bg-neutral-950 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-[70vh]">
         
-        {/* Header Settings */}
         <div className="p-4 border-b border-neutral-800 bg-black/50 space-y-4">
-          
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-2">
               <Icons.CreditCard /> Walawe API Key
@@ -135,13 +163,12 @@ export default function Playground() {
               placeholder="wlw_..." 
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
             />
-            <p className="text-xs text-neutral-500 mt-1">Masukkan API Key dari tab "API Keys" di dashboard ini.</p>
           </div>
 
           <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit overflow-x-auto">
-            <button onClick={() => setProvider('openai')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openai' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenAI</button>
-            <button onClick={() => setProvider('anthropic')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'anthropic' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>Anthropic</button>
-            <button onClick={() => setProvider('openrouter')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openrouter' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenRouter</button>
+            <button onClick={() => handleProviderChange('openai')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openai' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenAI</button>
+            <button onClick={() => handleProviderChange('anthropic')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'anthropic' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>Anthropic</button>
+            <button onClick={() => handleProviderChange('openrouter')} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${provider === 'openrouter' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>OpenRouter</button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -169,19 +196,18 @@ export default function Playground() {
           </div>
         </div>
 
-        {/* Chat Area */}
         <div className="flex-grow overflow-y-auto p-6 space-y-6">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-neutral-500 space-y-4">
               <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center border border-neutral-800">
                 <Icons.Send />
               </div>
-              <p className="text-sm">Isi kedua API Key di atas, lalu kirim pesan pertamamu.</p>
+              <p className="text-sm">Kirim pesan pertamamu.</p>
             </div>
           ) : (
             messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-5 py-3 text-sm ${msg.role === 'user' ? 'bg-white text-black font-medium' : 'bg-neutral-900 text-neutral-200 border border-neutral-800'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-5 py-3 text-sm ${msg.role === 'user' ? 'bg-white text-black font-medium' : msg.isError ? 'bg-red-950 text-red-400 border border-red-900' : 'bg-neutral-900 text-neutral-200 border border-neutral-800'}`}>
                   {msg.content}
                 </div>
               </div>
@@ -204,7 +230,6 @@ export default function Playground() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
         <form onSubmit={handleSend} className="p-4 border-t border-neutral-800 bg-black/50 flex gap-3">
           <input 
             type="text" 
