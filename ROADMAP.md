@@ -1,31 +1,26 @@
 # Walawe Roadmap
 
-This document outlines the future direction of Walawe. We believe in transparency, especially regarding security and production readiness.
+This document outlines the past, present, and future of Walawe.
 
-## Status: v3.0.0-alpha (Production Live)
-We have successfully deployed Walawe to the Cloud. The system is now live and handling real requests.
-- [x] **Base Sepolia Deployment:** Deployed `WalaweAccount.sol`.
-- [x] **True On-Chain Interaction:** Executed `addSessionKey` on the live testnet.
-- [x] **Persistent Anomaly Detection:** Redis-backed spam and spending rate detection.
-- [x] **RBAC:** Admin/Viewer roles with JWT and DB-backed login.
-- [x] **User Management:** Admin can create new users from the Dashboard.
-- [x] **Cloud Deployment:** Frontend on Vercel, Backend on SnapDeploy, DB on Neon, Cache on Upstash.
-- [x] **Accurate Cost Calculation:** Excluding active holds from usage limits.
-- [x] **Provider Error Handling:** Robust SSE parsing for OpenAI and Anthropic.
+## ✅ Completed (v4 Alpha)
 
-## v4.0.0 - Mainnet & Advanced Autonomy (Next)
-Our focus shifts to true on-chain settlement and advanced AI safety.
+*   **v1-v3:** Ledger, Policy Engine, x402 Mock Payment, Human Approvals, Dashboard Charts, RBAC, JWT Auth, Smart Contract ECDSA, Cloud Deployment.
+*   **v4 (Fase 1 & 2):** Removed hardcoded `agent_id`, enforced BYOK (Bring Your Own Key).
+*   **v4 (Fase 3):** Registration System (`POST /admin/register`), UI `/register`, API Key Management.
+*   **v4 (Fase 4):**
+    *   **Policy Engine UI:** Admins can now set spending limits and allowed models directly from the dashboard.
+    *   **On-Chain Deposits:** Top up your agent's wallet using USDC on Base Sepolia via WalletConnect.
+    *   **Agent Playground:** A built-in chat UI to test your agent using your OpenAI or Anthropic API key.
+    *   **Bilingual Support:** Full English and Indonesian localization.
 
-### ⛓️ True Web3 Integration
-- [ ] **Bundler Integration:** Connect the Go Gateway to an ERC-4337 Bundler (e.g., Pimlico, Stackup) to submit real `UserOperations`.
-- [ ] **On-chain x402 Settlement:** Move x402 payments from off-chain signatures to fully on-chain USDC transfers via smart accounts.
-- [ ] **Mainnet Deployment:** Deploy to Base Mainnet after a successful audit.
+## 🚧 In Progress (v4 Beta)
 
-### 🧠 Advanced AI Safety & Scale
-- [ ] **Behavioral Anomaly Detection:** Detect complex patterns (e.g., sudden switch to expensive models at 3 AM).
-- [ ] **Secret Management:** Move from environment variables to a dedicated Vault/KMS.
-- [ ] **Multi-Chain Support:** Add Solana support for x402 payments.
+*   **True On-Chain Settlement:** Moving from manual top-ups to a fully automated ERC-4337 bundler.
+*   **Session Keys:** Allow agents to transact on-chain using time-limited session keys.
 
-### 📊 Product Features
-- [ ] **Official SDK Releases:** Publish Python and TypeScript SDKs to PyPI and npm.
-- [ ] **Advanced Analytics:** ClickHouse integration for large-scale usage reporting.
+## 🔮 Future (v5+)
+
+*   **Mainnet Deployment:** Deploy Walawe contracts to Base Mainnet.
+*   **Fiat On-Ramp:** Integrate Stripe or similar for credit card top-ups.
+*   **Agent-to-Agent Payments:** Allow one AI agent to pay another AI agent directly.
+*   **Advanced Anomaly Detection:** Use machine learning to detect unusual spending patterns.
