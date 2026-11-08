@@ -15,30 +15,16 @@ type ProviderType = 'openai' | 'anthropic' | 'gemini' | 'groq';
 
 export default function Playground() {
   const [showSettings, setShowSettings] = useState(false);
-  
-  const [walaweApiKey, setWalaweApiKey] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('pg_walawe_key') || '';
-    return '';
-  });
-  
+  const [walaweApiKey, setWalaweApiKey] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_walawe_key') || '' : '');
   const [provider, setProvider] = useState<ProviderType>('gemini');
-  const [providerKey, setProviderKey] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('pg_provider_key') || '';
-    return '';
-  });
-  const [model, setModel] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('pg_model') || 'gemini-3.5-flash-lite';
-    return 'gemini-3.5-flash-lite';
-  });
-  
+  const [providerKey, setProviderKey] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_provider_key') || '' : '');
+  const [model, setModel] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_model') || 'gemini-3.5-flash-lite' : 'gemini-3.5-flash-lite');
   const [messages, setMessages] = useState<{ role: string; content: string; isError?: boolean }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
   const [showWalaweKey, setShowWalaweKey] = useState(false);
   const [showProviderKey, setShowProviderKey] = useState(false);
-  
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { localStorage.setItem('pg_walawe_key', walaweApiKey); }, [walaweApiKey]);
@@ -76,17 +62,8 @@ export default function Playground() {
     try {
       const res = await fetch(`${API_URL}/v1/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${cleanWalaweKey}`,
-          'X-Provider-Key': cleanProviderKey,
-          'X-Provider-Name': provider,
-        },
-        body: JSON.stringify({
-          model: model.trim(),
-          messages: [{ role: 'user', content: userMsg }],
-          max_tokens: 100,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanWalaweKey}`, 'X-Provider-Key': cleanProviderKey, 'X-Provider-Name': provider },
+        body: JSON.stringify({ model: model.trim(), messages: [{ role: 'user', content: userMsg }], max_tokens: 100 }),
       });
 
       if (!res.ok) {
@@ -105,10 +82,8 @@ export default function Playground() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-
           const chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n');
-
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
@@ -136,12 +111,10 @@ export default function Playground() {
           }
         }
       }
-      
       if (assistantMsg === '' && !hasError) {
         setMessages((prev) => prev.slice(0, -1));
         setError("AI tidak mengembalikan jawaban.");
       }
-
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan sistem.');
       setMessages((prev) => prev.slice(0, -1));
@@ -151,26 +124,12 @@ export default function Playground() {
   };
 
   return (
-    <div className="flex flex-col h-[80vh] max-w-5xl mx-auto w-full relative">
-      
-      {/* Header: Minimalist */}
-      <div className="flex justify-between items-center pb-4 border-b border-neutral-900 mb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-white tracking-tight">Agent Playground</h1>
-          <p className="text-neutral-500 text-xs mt-1">Test your BYOK agent with live ledger tracking.</p>
-        </div>
-        <button onClick={() => setShowSettings(true)} className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded-lg text-sm transition-colors border border-neutral-800">
-          <Icons.Settings /> Settings
-        </button>
-      </div>
-
-      {/* Settings Modal (Overlay) */}
+    <div className="flex flex-col h-[calc(100vh-140px)] w-full relative">
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative animate-scale-in">
             <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-lg font-bold text-white mb-6">Playground Configuration</h2>
-            
             <div className="space-y-5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Walawe API Key</label>
@@ -179,13 +138,11 @@ export default function Playground() {
                   <button type="button" onClick={() => setShowWalaweKey(!showWalaweKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">{showWalaweKey ? <Icons.EyeOff /> : <Icons.Eye />}</button>
                 </div>
               </div>
-
               <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800">
                 {(['gemini', 'groq', 'openai', 'anthropic'] as ProviderType[]).map(p => (
                   <button key={p} onClick={() => handleProviderChange(p)} className={`flex-1 py-1.5 text-xs font-medium rounded-md capitalize transition-colors ${provider === p ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>{p}</button>
                 ))}
               </div>
-
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{provider} Provider Key (BYOK)</label>
                 <div className="relative">
@@ -193,35 +150,26 @@ export default function Playground() {
                   <button type="button" onClick={() => setShowProviderKey(!showProviderKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">{showProviderKey ? <Icons.EyeOff /> : <Icons.Eye />}</button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Model Name</label>
                 <input type="text" value={model} onChange={e => setModel(e.target.value)} className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-neutral-600" />
               </div>
-
-              <button onClick={() => setShowSettings(false)} className="w-full bg-white text-black font-semibold py-3 rounded-lg hover:bg-neutral-200 transition-colors mt-2">
-                Save & Close
-              </button>
+              <button onClick={() => setShowSettings(false)} className="w-full bg-white text-black font-semibold py-3 rounded-lg hover:bg-neutral-200 transition-colors mt-2">Save & Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Chat Area */}
       <div className="flex-grow overflow-y-auto pr-2 space-y-6 scrollbar-thin">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-neutral-600 space-y-4">
-            <div className="w-16 h-16 rounded-full bg-neutral-900/50 flex items-center justify-center border border-neutral-800/50">
-              <Icons.Send />
-            </div>
+            <div className="w-16 h-16 rounded-full bg-neutral-900/50 flex items-center justify-center border border-neutral-800/50"><Icons.Send /></div>
             <p className="text-sm">How can I help you today?</p>
           </div>
         ) : (
           messages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] px-5 py-3 rounded-2xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-white text-black' : msg.isError ? 'bg-red-950/50 text-red-400 border border-red-900/50' : 'bg-neutral-900/80 text-neutral-200 border border-neutral-800/50'}`}>
-                {msg.content}
-              </div>
+              <div className={`max-w-[85%] px-5 py-3 rounded-2xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-white text-black' : msg.isError ? 'bg-red-950/50 text-red-400 border border-red-900/50' : 'bg-neutral-900/80 text-neutral-200 border border-neutral-800/50'}`}>{msg.content}</div>
             </div>
           ))
         )}
@@ -237,24 +185,10 @@ export default function Playground() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <div className="pt-4">
         <form onSubmit={handleSend} className="relative flex items-center bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg focus-within:border-neutral-600 transition-colors">
-          <input 
-            type="text" 
-            value={input} 
-            onChange={e => setInput(e.target.value)} 
-            placeholder="Message Agent..." 
-            disabled={isLoading}
-            className="w-full bg-transparent px-5 py-4 text-white text-[15px] focus:outline-none placeholder:text-neutral-600" 
-          />
-          <button 
-            type="submit" 
-            disabled={isLoading || !input.trim()}
-            className="absolute right-2 p-2 bg-white text-black rounded-xl hover:bg-neutral-200 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"
-          >
-            <Icons.Send />
-          </button>
+          <input type="text" value={input} onChange={e => setInput(e.target.value)} placeholder="Message Agent..." disabled={isLoading} className="w-full bg-transparent px-5 py-4 text-white text-[15px] focus:outline-none placeholder:text-neutral-600" />
+          <button type="submit" disabled={isLoading || !input.trim()} className="absolute right-2 p-2 bg-white text-black rounded-xl hover:bg-neutral-200 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"><Icons.Send /></button>
         </form>
         {error && <p className="text-red-500 text-xs text-center mt-3">{error}</p>}
       </div>
