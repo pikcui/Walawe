@@ -11,9 +11,19 @@ const Icons = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
 export default function Playground() {
-  const [walaweApiKey, setWalaweApiKey] = useState('');
+  // Inisialisasi state dari localStorage (jika ada)
+  const [walaweApiKey, setWalaweApiKey] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('pg_walawe_key') || '';
+    return '';
+  });
+  
   const [provider, setProvider] = useState<'openai' | 'anthropic' | 'openrouter'>('openrouter');
-  const [providerKey, setProviderKey] = useState('');
+  
+  const [providerKey, setProviderKey] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('pg_provider_key') || '';
+    return '';
+  });
+  
   const [model, setModel] = useState('meta-llama/llama-3-8b-instruct:free');
   
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
@@ -22,6 +32,15 @@ export default function Playground() {
   const [error, setError] = useState('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Simpan ke localStorage setiap kali ada perubahan
+  useEffect(() => {
+    localStorage.setItem('pg_walawe_key', walaweApiKey);
+  }, [walaweApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('pg_provider_key', providerKey);
+  }, [providerKey]);
 
   useEffect(() => {
     if (provider === 'openai') setModel('gpt-4o-mini');
@@ -135,7 +154,7 @@ export default function Playground() {
               placeholder="wlw_..." 
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
             />
-            <p className="text-xs text-neutral-500 mt-1">Masukkan API Key dari tab "API Keys" di dashboard ini.</p>
+            <p className="text-xs text-neutral-500 mt-1">Kunci ini otomatis tersimpan di browser Anda.</p>
           </div>
 
           <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit overflow-x-auto">
@@ -176,7 +195,7 @@ export default function Playground() {
               <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center border border-neutral-800">
                 <Icons.Send />
               </div>
-              <p className="text-sm">Isi kedua API Key di atas, lalu kirim pesan pertamamu.</p>
+              <p className="text-sm">Kirim pesan pertamamu.</p>
             </div>
           ) : (
             messages.map((msg, idx) => (
