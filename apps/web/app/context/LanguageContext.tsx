@@ -7,10 +7,33 @@ type Language = 'en' | 'id';
 const translations = {
   en: {
     // Landing
-    heroTitle: "The Financial Layer for AI Agents.",
-    heroSubtitle: "Give your autonomous agents a wallet. Set hard limits. Watch them work.",
-    getStarted: "Get Started",
-    login: "Login",
+    heroTitle: "Programmable Finance for Autonomous AI.",
+    heroSubtitle: "Equip your AI agents with a wallet. Set strict spending limits. Let them pay for APIs and models independently.",
+    feature1Title: "Hard Spending Limits",
+    feature1Desc: "Never wake up to a drained bank account. Set daily and per-transaction limits.",
+    feature2Title: "Bring Your Own Key (BYOK)",
+    feature2Desc: "Your agents use your API keys. Walawe secures the payment flow.",
+    feature3Title: "On-Chain Deposits",
+    feature3Desc: "Top up your agent's wallet using USDC on Base Sepolia.",
+    getStarted: "Start Building",
+    login: "Sign In",
+    
+    // Auth
+    loginTitle: "Admin Login",
+    email: "Email",
+    password: "Password",
+    signIn: "Sign In",
+    noAccount: "Don't have an account?",
+    registerHere: "Register here",
+    registerTitle: "Create Account",
+    orgName: "Organization Name",
+    agentName: "Agent Name (Optional)",
+    registerBtn: "Create Account",
+    hasAccount: "Already have an account?",
+    loginHere: "Sign in here",
+    creating: "Creating...",
+    signingIn: "Signing in...",
+
     // Dashboard
     overview: "Overview",
     overviewDesc: "Manage your agent wallet and authorize pending actions.",
@@ -40,14 +63,38 @@ const translations = {
     success: "Success!",
     depositSuccess: "Web3 Deposit verified and recorded!",
     depositManual: "Funds will be recorded immutably in the ledger.",
-    depositWeb3Desc: "Deposit USDC via Base Sepolia Testnet.",
+    depositWeb3Desc: "Connect your Web3 wallet to fund your agent's account (Payment Method).",
+    paymentSource: "Payment Source",
   },
   id: {
     // Landing
-    heroTitle: "Lapisan Finansial untuk AI Agent.",
-    heroSubtitle: "Beri agen otonom Anda dompet. Tetapkan batas keras. Lihat mereka bekerja.",
-    getStarted: "Mulai Sekarang",
+    heroTitle: "Keuangan Terprogram untuk AI Otonom.",
+    heroSubtitle: "Bekali agen AI Anda dengan dompet. Tetapkan batas pengeluaran yang ketat. Biarkan mereka membayar API secara mandiri.",
+    feature1Title: "Batas Pengeluaran Keras",
+    feature1Desc: "Jangan pernah bangun dengan rekening kosong. Tetapkan batas harian dan per-transaksi.",
+    feature2Title: "Bawa Kunci Anda Sendiri (BYOK)",
+    feature2Desc: "Agen Anda menggunakan kunci API Anda. Walawe mengamankan alur pembayaran.",
+    feature3Title: "Deposit On-Chain",
+    feature3Desc: "Isi ulang dompet agen Anda menggunakan USDC di Base Sepolia.",
+    getStarted: "Mulai Bangun",
     login: "Masuk",
+
+    // Auth
+    loginTitle: "Login Admin",
+    email: "Email",
+    password: "Password",
+    signIn: "Masuk",
+    noAccount: "Belum punya akun?",
+    registerHere: "Daftar di sini",
+    registerTitle: "Buat Akun",
+    orgName: "Nama Organisasi",
+    agentName: "Nama Agen (Opsional)",
+    registerBtn: "Buat Akun",
+    hasAccount: "Sudah punya akun?",
+    loginHere: "Masuk di sini",
+    creating: "Membuat...",
+    signingIn: "Memproses...",
+
     // Dashboard
     overview: "Ringkasan",
     overviewDesc: "Kelola dompet agen Anda dan setujui tindakan yang tertunda.",
@@ -77,7 +124,8 @@ const translations = {
     success: "Berhasil!",
     depositSuccess: "Deposit Web3 berhasil diverifikasi dan dicatat!",
     depositManual: "Dana akan dicatat secara permanen di ledger.",
-    depositWeb3Desc: "Deposit USDC via Base Sepolia Testnet.",
+    depositWeb3Desc: "Hubungkan dompet Web3 Anda sebagai metode pembayaran untuk mengisi saldo.",
+    paymentSource: "Sumber Dana",
   }
 };
 

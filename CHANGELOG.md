@@ -18,3 +18,20 @@
 - **Smart Contract ECDSA:** Implemented real signature verification.
 - **Dashboard Charts:** Recharts integration for spending trends.
 - **Docker Secrets:** `.env` management.
+
+## [v4 Alpha] - 2026-11-08
+### Added
+- **Zero Mock Policy Engine:** Policy Engine now reads rules dynamically from PostgreSQL and is fully fail-closed.
+- **Web3 On-Chain Deposits:** Users can now top up their agent's balance using USDC on Base Sepolia via WalletConnect.
+- **Bilingual Support:** Full English and Indonesian localization for the entire platform.
+- **Professional Landing Page:** Replaced the initial design with a structured Bento-grid layout.
+
+### Changed
+- **UI/UX Overhaul:** Replaced mobile bottom navbar with a smooth slide-in hamburger menu.
+- **Payment Flow:** Clarified Web3 Wallet connection as a payment method, not a secondary login.
+- **Mobile Responsiveness:** Optimized dashboard cards and buttons for smaller screens.
+
+### Fixed
+- **Transaction Stuck State:** Resolved an issue where the "Check Wallet..." state persisted after a successful Web3 deposit.
+- **Missing Modals:** Restored Add Funds and Add User modals that were accidentally removed during UI refactoring.
+- **Go Version:** Hard-pinned backend `go.mod` to 1.23.0 to ensure Docker CI compatibility.
