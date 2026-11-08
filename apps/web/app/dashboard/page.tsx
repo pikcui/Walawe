@@ -24,13 +24,8 @@ const ERC20_ABI = [
   { "constant": false, "inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function" }
 ];
 
-// Helper untuk membaca isi JWT Token (mengambil email)
 const parseJwt = (token: string) => {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch (e) {
-    return null;
-  }
+  try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
 };
 
 export default function Home() {
@@ -41,7 +36,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null); // State untuk Email
+  const [userEmail, setUserEmail] = useState<string | null>(null); 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -90,7 +85,6 @@ export default function Home() {
     const role = localStorage.getItem('walawe_role');
     if (!token) { router.push('/login'); return; }
     
-    // Decode JWT untuk mendapatkan Email
     const decoded = parseJwt(token);
     if (decoded && decoded.sub) setUserEmail(decoded.sub);
 
@@ -233,11 +227,16 @@ export default function Home() {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}></div>
           <div className="relative w-72 bg-neutral-950 h-full border-l border-neutral-800 flex flex-col p-6 shadow-2xl animate-slide-in-right">
             
-            {/* Profile Section */}
+            {/* Profile Section with Role Badge */}
             <div className="flex justify-between items-start mb-8">
               <div className="flex flex-col">
                 <span className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Signed in as</span>
-                <span className="text-sm text-white font-medium truncate max-w-[200px]">{userEmail || 'Loading...'}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-white font-medium truncate max-w-[150px]">{userEmail || 'Loading...'}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${userRole === 'admin' ? 'bg-white text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                    {userRole}
+                  </span>
+                </div>
               </div>
               <button onClick={() => setShowMobileMenu(false)} className="text-neutral-500 hover:text-white active:scale-90 transition-transform"><Icons.X /></button>
             </div>
@@ -286,24 +285,11 @@ export default function Home() {
               <div><label className="block text-sm font-medium text-neutral-400 mb-1">{t.email}</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
               <div><label className="block text-sm font-medium text-neutral-400 mb-1">{t.password}</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
               
-              {/* CUSTOM SELECT UNTUK ROLE (Menghindari Pop-up Browser) */}
               <div>
                 <label className="block text-sm font-medium text-neutral-400 mb-1">Role</label>
                 <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800">
-                  <button 
-                    type="button" 
-                    onClick={() => setNewRole('viewer')} 
-                    className={`flex-1 py-2 text-sm rounded-md transition-colors font-medium ${newRole === 'viewer' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
-                  >
-                    Viewer
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setNewRole('admin')} 
-                    className={`flex-1 py-2 text-sm rounded-md transition-colors font-medium ${newRole === 'admin' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
-                  >
-                    Admin
-                  </button>
+                  <button type="button" onClick={() => setNewRole('viewer')} className={`flex-1 py-2 text-sm rounded-md transition-colors font-medium ${newRole === 'viewer' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>Viewer</button>
+                  <button type="button" onClick={() => setNewRole('admin')} className={`flex-1 py-2 text-sm rounded-md transition-colors font-medium ${newRole === 'admin' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>Admin</button>
                 </div>
               </div>
 
@@ -381,10 +367,13 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-4">
             <button onClick={() => setLang(lang === 'en' ? 'id' : 'en')} className="text-xs font-medium text-neutral-400 hover:text-white border border-neutral-800 px-3 py-1.5 rounded-md transition-colors">{lang === 'en' ? '🇮🇩 ID' : '🇬🇧 EN'}</button>
             
-            {/* Display Email on Desktop */}
+            {/* Display Email & Role on Desktop */}
             <div className="flex items-center gap-2 border-r border-neutral-800 pr-4">
               <Icons.User />
               <span className="text-xs font-medium text-neutral-300 max-w-[150px] truncate">{userEmail}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${userRole === 'admin' ? 'bg-white text-black' : 'bg-neutral-800 text-neutral-400'}`}>
+                {userRole}
+              </span>
             </div>
 
             {isConnected && (
