@@ -356,7 +356,7 @@ SELECT
 COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN amount ELSE 0 END), 0) as spent_today,
 COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', CURRENT_DATE) THEN amount ELSE 0 END), 0) as spent_month
 FROM entries
-WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
+WHERE debit = 'hold_' || $1 AND ref_type = 'settle'
 `
 	err := dbPool.QueryRow(ctx, query, string(agentID)).Scan(&spentToday, &spentMonth)
 	if err != nil {
@@ -400,7 +400,7 @@ SELECT
 TO_CHAR(created_at, 'YYYY-MM-DD') as usage_date,
 COALESCE(SUM(amount), 0) as total
 FROM entries
-WHERE debit = $1 AND ref_type IN ('settle', 'x402_payment')
+WHERE debit = 'hold_' || $1 AND ref_type = 'settle'
 AND created_at >= CURRENT_DATE - INTERVAL '7 days'
 GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
 ORDER BY usage_date ASC
