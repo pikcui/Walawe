@@ -15,6 +15,7 @@ const Icons = {
   X: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>),
   Plus: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>),
   Menu: () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>),
+  User: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
@@ -22,6 +23,15 @@ const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const ERC20_ABI = [
   { "constant": false, "inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function" }
 ];
+
+// Helper untuk membaca isi JWT Token (mengambil email)
+const parseJwt = (token: string) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+};
 
 export default function Home() {
   const { t, lang, setLang } = useLanguage();
@@ -31,9 +41,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null); // State untuk Email
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // Custom UI States for Popups
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; desc: string; onConfirm: () => void } | null>(null);
 
@@ -57,7 +67,6 @@ export default function Home() {
 
   const router = useRouter();
 
-  // Helper for Formatting Currency
   const formatCurrency = (microUsd: number) => {
     return (microUsd / 1000000).toLocaleString('en-US', {
       minimumFractionDigits: 2,
@@ -69,7 +78,6 @@ export default function Home() {
     if (isConnected) setShowWalletModal(false);
   }, [isConnected]);
 
-  // Toast Auto-hide
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 4000);
@@ -81,6 +89,11 @@ export default function Home() {
     const token = localStorage.getItem('walawe_token');
     const role = localStorage.getItem('walawe_role');
     if (!token) { router.push('/login'); return; }
+    
+    // Decode JWT untuk mendapatkan Email
+    const decoded = parseJwt(token);
+    if (decoded && decoded.sub) setUserEmail(decoded.sub);
+
     setUserRole(role);
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
@@ -219,12 +232,17 @@ export default function Home() {
         <div className="fixed inset-0 z-[120] flex justify-end">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}></div>
           <div className="relative w-72 bg-neutral-950 h-full border-l border-neutral-800 flex flex-col p-6 shadow-2xl animate-slide-in-right">
-            <div className="flex justify-between items-center mb-8">
-              <span className="font-bold text-white text-lg">Menu</span>
+            
+            {/* Profile Section */}
+            <div className="flex justify-between items-start mb-8">
+              <div className="flex flex-col">
+                <span className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Signed in as</span>
+                <span className="text-sm text-white font-medium truncate max-w-[200px]">{userEmail || 'Loading...'}</span>
+              </div>
               <button onClick={() => setShowMobileMenu(false)} className="text-neutral-500 hover:text-white active:scale-90 transition-transform"><Icons.X /></button>
             </div>
             
-            <div className="flex flex-col space-y-6 flex-grow">
+            <div className="flex flex-col space-y-6 flex-grow border-t border-neutral-800 pt-6">
               <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white transition-colors">
                 {lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
               </button>
@@ -243,8 +261,8 @@ export default function Home() {
               )}
 
               {userRole === 'admin' && (
-                <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-sm font-medium text-neutral-300 hover:text-white transition-colors">
-                  {t.addUser}
+                <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-sm font-medium text-neutral-300 hover:text-white transition-colors flex items-center gap-2">
+                  <Icons.User /> {t.addUser}
                 </button>
               )}
             </div>
@@ -267,12 +285,28 @@ export default function Home() {
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div><label className="block text-sm font-medium text-neutral-400 mb-1">{t.email}</label><input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
               <div><label className="block text-sm font-medium text-neutral-400 mb-1">{t.password}</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500" /></div>
+              
+              {/* CUSTOM SELECT UNTUK ROLE (Menghindari Pop-up Browser) */}
               <div>
                 <label className="block text-sm font-medium text-neutral-400 mb-1">Role</label>
-                <select value={newRole} onChange={e => setNewRole(e.target.value)} className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-neutral-500 appearance-none">
-                  <option value="viewer">Viewer</option><option value="admin">Admin</option>
-                </select>
+                <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800">
+                  <button 
+                    type="button" 
+                    onClick={() => setNewRole('viewer')} 
+                    className={`flex-1 py-2 text-sm rounded-md transition-colors font-medium ${newRole === 'viewer' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
+                  >
+                    Viewer
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setNewRole('admin')} 
+                    className={`flex-1 py-2 text-sm rounded-md transition-colors font-medium ${newRole === 'admin' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
+                  >
+                    Admin
+                  </button>
+                </div>
               </div>
+
               <button type="submit" className="w-full bg-white text-black font-medium py-2.5 rounded-lg hover:bg-neutral-200 active:scale-95 transition-all mt-6">Create User</button>
             </form>
           </div>
@@ -346,6 +380,13 @@ export default function Home() {
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-4">
             <button onClick={() => setLang(lang === 'en' ? 'id' : 'en')} className="text-xs font-medium text-neutral-400 hover:text-white border border-neutral-800 px-3 py-1.5 rounded-md transition-colors">{lang === 'en' ? '🇮🇩 ID' : '🇬🇧 EN'}</button>
+            
+            {/* Display Email on Desktop */}
+            <div className="flex items-center gap-2 border-r border-neutral-800 pr-4">
+              <Icons.User />
+              <span className="text-xs font-medium text-neutral-300 max-w-[150px] truncate">{userEmail}</span>
+            </div>
+
             {isConnected && (
               <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-full">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
