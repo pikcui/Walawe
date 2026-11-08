@@ -17,7 +17,8 @@ const Icons = {
   Menu: () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>),
   User: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
   Key: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>),
-  Trash: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>)
+  Trash: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>),
+  Shield: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>)
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
@@ -32,7 +33,7 @@ const parseJwt = (token: string) => {
 
 export default function Home() {
   const { t, lang, setLang } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'policy'>('overview');
   
   const [balance, setBalance] = useState<number | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
@@ -48,21 +49,23 @@ export default function Home() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; desc: string; onConfirm: () => void } | null>(null);
 
-  // State Add User
   const [showAddUser, setShowAddUser] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('viewer');
 
-  // State Add Funds
   const [showAddFunds, setShowAddFunds] = useState(false);
   const [depositMode, setDepositMode] = useState<'manual' | 'web3'>('manual');
   const [depositAmount, setDepositAmount] = useState('');
   const [showWalletModal, setShowWalletModal] = useState(false);
 
-  // State API Keys
-  const [showCreateKey, setShowCreateKey] = useState(false);
   const [newGeneratedKey, setNewGeneratedKey] = useState<string | null>(null);
+
+  const [policyData, setPolicyData] = useState<any>(null);
+  const [policyModels, setPolicyModels] = useState('');
+  const [maxTx, setMaxTx] = useState('');
+  const [dailyLimit, setDailyLimit] = useState('');
+  const [savingPolicy, setSavingPolicy] = useState(false);
 
   const { address, isConnected, chainId } = useAccount();
   const { connect, connectors, isPending: isConnecting, error: connectError } = useConnect();
@@ -99,11 +102,12 @@ export default function Home() {
 
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
-      const [balRes, appRes, usageRes, keysRes] = await Promise.all([
+      const [balRes, appRes, usageRes, keysRes, policyRes] = await Promise.all([
         fetch(`${API_URL}/admin/balance`, { headers }),
         fetch(`${API_URL}/admin/approvals`, { headers }),
         fetch(`${API_URL}/admin/usage`, { headers }),
-        fetch(`${API_URL}/admin/api-keys`, { headers })
+        fetch(`${API_URL}/admin/api-keys`, { headers }),
+        fetch(`${API_URL}/admin/policy`, { headers })
       ]);
       if (balRes.status === 401) { localStorage.clear(); router.push('/login'); return; }
       
@@ -111,11 +115,19 @@ export default function Home() {
       const appData = await appRes.json();
       const usageData = await usageRes.json();
       const keysData = await keysRes.json();
+      const policyJson = await policyRes.json();
 
       setBalance(balData.balance_micro_usd);
       setApprovals(Array.isArray(appData) ? appData : []);
       setChartData(Array.isArray(usageData) ? usageData : []);
       setApiKeys(Array.isArray(keysData) ? keysData : []);
+      
+      if (policyJson && policyJson.allowed_models) {
+        setPolicyData(policyJson);
+        setPolicyModels(policyJson.allowed_models.join(', '));
+        setMaxTx((policyJson.max_per_tx_micro_usd / 1000000).toString());
+        setDailyLimit((policyJson.daily_limit_micro_usd / 1000000).toString());
+      }
       setLoading(false);
     } catch (err) { console.error(err); setLoading(false); }
   };
@@ -214,7 +226,7 @@ export default function Home() {
   const handleRevokeKey = (id: string) => {
     setConfirmModal({
       title: "Revoke API Key?",
-      desc: "Aplikasi yang menggunakan key ini akan langsung kehilangan akses. Tindakan ini tidak bisa dibatalkan.",
+      desc: "Aplikasi yang menggunakan key ini akan langsung kehilangan akses.",
       onConfirm: async () => {
         const token = localStorage.getItem('walawe_token');
         try {
@@ -229,6 +241,34 @@ export default function Home() {
         } catch (err) { console.error(err); }
       }
     });
+  };
+
+  const handleSavePolicy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPolicy(true);
+    const token = localStorage.getItem('walawe_token');
+    
+    const modelsArray = policyModels.split(',').map(m => m.trim()).filter(m => m !== '');
+    const newPolicy = {
+      allowed_models: modelsArray,
+      max_per_tx_micro_usd: Math.round(parseFloat(maxTx) * 1000000),
+      daily_limit_micro_usd: Math.round(parseFloat(dailyLimit) * 1000000),
+      monthly_limit_micro_usd: Math.round(parseFloat(dailyLimit) * 1000000 * 30)
+    };
+
+    try {
+      const res = await fetch(`${API_URL}/admin/policy/update`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(newPolicy)
+      });
+      if (res.ok) {
+        setToast({ msg: "Policy updated successfully", type: 'success' });
+        fetchData();
+      } else {
+        setToast({ msg: "Failed to update policy", type: 'error' });
+      }
+    } catch (err) { console.error(err); setToast({ msg: "Network error", type: 'error' }); }
+    finally { setSavingPolicy(false); }
   };
 
   const handleDisconnect = () => {
@@ -246,7 +286,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative">
       
-      {/* TOAST */}
       {toast && (
         <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-2xl z-[200] font-medium text-sm animate-slide-down flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-500 text-black' : 'bg-red-600 text-white'}`}>
           {toast.type === 'success' ? <Icons.Check /> : <Icons.X />}
@@ -254,7 +293,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* CONFIRM MODAL */}
       {confirmModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-6 animate-scale-in">
@@ -268,7 +306,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL CREATE KEY SUCCESS */}
       {newGeneratedKey && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl text-center space-y-6 animate-scale-in">
@@ -281,12 +318,11 @@ export default function Home() {
         </div>
       )}
 
-      {/* SLIDE-IN MENU */}
       {showMobileMenu && (
         <div className="fixed inset-0 z-[120] flex justify-end">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}></div>
           <div className="relative w-72 bg-neutral-950 h-full border-l border-neutral-800 flex flex-col p-6 shadow-2xl animate-slide-in-right">
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex justify-between items-start mb-6">
               <div className="flex flex-col">
                 <span className="text-xs text-neutral-500 uppercase tracking-wider font-bold mb-1">Signed in as</span>
                 <div className="flex items-center gap-2">
@@ -296,8 +332,17 @@ export default function Home() {
               </div>
               <button onClick={() => setShowMobileMenu(false)} className="text-neutral-500 hover:text-white active:scale-90 transition-transform"><Icons.X /></button>
             </div>
+
+            <div className="flex flex-col space-y-2 border-t border-neutral-800 pt-6 mb-6">
+              <button onClick={() => { setActiveTab('overview'); setShowMobileMenu(false); }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'}`}>Overview</button>
+              <button onClick={() => { setActiveTab('api-keys'); setShowMobileMenu(false); }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'}`}>API Keys</button>
+              <button onClick={() => { setActiveTab('policy'); setShowMobileMenu(false); }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'policy' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'}`}>Policy Engine</button>
+            </div>
+            
             <div className="flex flex-col space-y-6 flex-grow border-t border-neutral-800 pt-6">
-              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white transition-colors">{lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}</button>
+              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white transition-colors">
+                {lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
+              </button>
               {isConnected && (
                 <div className="flex flex-col space-y-2">
                   <span className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Connected Wallet</span>
@@ -318,7 +363,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODALS ADD USER & ADD FUNDS & WALLET */}
       {showAddUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
@@ -383,7 +427,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* TOPBAR */}
       <nav className="border-b border-neutral-800 bg-black/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -391,10 +434,10 @@ export default function Home() {
               <div className="w-8 h-8 rounded bg-white text-black flex items-center justify-center font-bold">W</div>
               <span className="text-lg font-semibold tracking-tight text-white hidden sm:block">Walawe</span>
             </div>
-            {/* Tab Links (Desktop) */}
             <div className="hidden md:flex items-center gap-4">
               <button onClick={() => setActiveTab('overview')} className={`text-sm font-medium transition-colors ${activeTab === 'overview' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Overview</button>
               <button onClick={() => setActiveTab('api-keys')} className={`text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>API Keys</button>
+              <button onClick={() => setActiveTab('policy')} className={`text-sm font-medium transition-colors ${activeTab === 'policy' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Policy</button>
             </div>
           </div>
           
@@ -421,17 +464,10 @@ export default function Home() {
             <button onClick={() => setShowMobileMenu(true)} className="text-white p-1.5 active:scale-75 transition-transform duration-200"><Icons.Menu /></button>
           </div>
         </div>
-        {/* Tab Links (Mobile) */}
-        <div className="md:hidden flex items-center border-t border-neutral-800">
-          <button onClick={() => setActiveTab('overview')} className={`flex-1 py-3 text-xs font-medium text-center border-b-2 transition-colors ${activeTab === 'overview' ? 'border-white text-white' : 'border-transparent text-neutral-500'}`}>Overview</button>
-          <button onClick={() => setActiveTab('api-keys')} className={`flex-1 py-3 text-xs font-medium text-center border-b-2 transition-colors ${activeTab === 'api-keys' ? 'border-white text-white' : 'border-transparent text-neutral-500'}`}>API Keys</button>
-        </div>
       </nav>
 
-      {/* MAIN CONTENT */}
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 space-y-6 md:space-y-8">
         
-        {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-6 md:space-y-8 animate-scale-in">
             <div className={fadeIn}>
@@ -545,7 +581,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* TAB 2: API KEYS */}
         {activeTab === 'api-keys' && (
           <div className="space-y-6 animate-scale-in">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -586,6 +621,55 @@ export default function Home() {
                 </table>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'policy' && (
+          <div className="space-y-6 animate-scale-in">
+            <div>
+              <h1 className="text-3xl font-bold text-white tracking-tighter">Policy Engine</h1>
+              <p className="text-neutral-500 text-sm mt-1">Set strict spending limits and allowed models for your agents.</p>
+            </div>
+
+            <form onSubmit={handleSavePolicy} className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center gap-2">
+                  <Icons.Shield /> Allowed Models (Comma separated)
+                </label>
+                <input 
+                  type="text" 
+                  value={policyModels} 
+                  onChange={e => setPolicyModels(e.target.value)} 
+                  required 
+                  placeholder="gpt-4o-mini, claude-haiku-4-5"
+                  className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neutral-500" 
+                />
+                <p className="text-xs text-neutral-500 mt-2">If empty, all requests will be denied (Fail-Closed).</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">Max per Transaction (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
+                    <input type="number" step="0.01" min="0.01" value={maxTx} onChange={e => setMaxTx(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg pl-8 pr-4 py-3 text-white focus:outline-none focus:border-neutral-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">Daily Limit (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
+                    <input type="number" step="0.01" min="0.01" value={dailyLimit} onChange={e => setDailyLimit(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg pl-8 pr-4 py-3 text-white focus:outline-none focus:border-neutral-500" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-neutral-800">
+                <button type="submit" disabled={savingPolicy} className="w-full md:w-auto bg-white text-black font-bold py-3 px-8 rounded-lg hover:bg-neutral-200 active:scale-95 transition-all disabled:opacity-50">
+                  {savingPolicy ? "Saving..." : "Save Policy"}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </main>
