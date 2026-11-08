@@ -136,6 +136,12 @@ export default function Home() {
   useEffect(() => { setMounted(true); fetchData(); }, []);
 
   useEffect(() => {
+    if (activeTab === "overview") {
+      fetchData();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     if (isConfirmed && hash) {
       const submit = async () => {
         const token = localStorage.getItem('walawe_token');
