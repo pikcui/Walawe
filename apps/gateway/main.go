@@ -101,26 +101,27 @@ func newMux() http.Handler {
 		w.Write([]byte("ok"))
 	})
 
+	// Public Routes
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0x8a21C2f8F19123de2bcc5F7932d2351eba1Db6Eb")(handlePremiumData))))
-
 	mux.HandleFunc("/admin/login", handleAdminLogin)
 	mux.HandleFunc("/admin/register", handleAdminRegister)
-	mux.HandleFunc("/admin/deposit", AdminOnlyMiddleware(handleAdminDeposit))
-	mux.HandleFunc("/admin/deposit-web3", AdminOnlyMiddleware(handleWeb3Deposit))
-	mux.HandleFunc("/admin/api-keys", AdminOnlyMiddleware(handleGetAPIKeys))
-	mux.HandleFunc("/admin/api-keys/create", AdminOnlyMiddleware(handleCreateAPIKey))
-	mux.HandleFunc("/admin/api-keys/revoke", AdminOnlyMiddleware(handleRevokeAPIKey))
-	mux.HandleFunc("/admin/api-keys", AdminOnlyMiddleware(handleGetAPIKeys))
-	mux.HandleFunc("/admin/api-keys/create", AdminOnlyMiddleware(handleCreateAPIKey))
-	mux.HandleFunc("/admin/api-keys/revoke", AdminOnlyMiddleware(handleRevokeAPIKey))
 
+	// Protected Admin Routes
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
 	mux.HandleFunc("/admin/approvals", AdminAuthMiddleware(handleGetApprovals))
 	mux.HandleFunc("/admin/usage", AdminAuthMiddleware(handleGetUsage))
 
+	// Admin Only Routes
 	mux.HandleFunc("/admin/approvals/resolve", AdminOnlyMiddleware(handleResolveApproval))
 	mux.HandleFunc("/admin/users", AdminOnlyMiddleware(handleCreateUser))
+	mux.HandleFunc("/admin/deposit", AdminOnlyMiddleware(handleAdminDeposit))
+	mux.HandleFunc("/admin/deposit-web3", AdminOnlyMiddleware(handleWeb3Deposit))
+
+	// API Keys Management (Routes Bersih)
+	mux.HandleFunc("/admin/api-keys", AdminOnlyMiddleware(handleGetAPIKeys))
+	mux.HandleFunc("/admin/api-keys/create", AdminOnlyMiddleware(handleCreateAPIKey))
+	mux.HandleFunc("/admin/api-keys/revoke", AdminOnlyMiddleware(handleRevokeAPIKey))
 
 	return corsMiddleware(mux)
 }
@@ -173,7 +174,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	writeAuditLog("chat_completion_request", agentIDStr)
 
-	// 1. Ambil status agen
 	var agentStatus string
 	err := dbPool.QueryRow(r.Context(), "SELECT status FROM agents WHERE id = $1::uuid", agentIDStr).Scan(&agentStatus)
 	if err != nil {
@@ -181,7 +181,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Ambil aturan policy langsung dari database (ZERO MOCK)
 	var ruleJSON []byte
 	err = dbPool.QueryRow(r.Context(), "SELECT rule_json FROM policies WHERE agent_id = $1::uuid ORDER BY created_at DESC LIMIT 1", agentIDStr).Scan(&ruleJSON)
 	if err != nil {
@@ -195,8 +194,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid policy format", http.StatusInternalServerError)
 		return
 	}
-
-	// Timpa status dari tabel agents (jika agen di-suspend, langsung ditolak)
 	dynamicPolicy.Status = agentStatus
 
 	usage, err := getAgentUsage(r.Context(), agentID)
@@ -207,7 +204,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	policyReq := policyengine.Request{Model: req.Model, MaxTokens: req.MaxTokens, EstimatedCost: estimatedCost}
 
-	// 3. Evaluasi Policy
 	decision := policyengine.Evaluate(policyReq, usage, dynamicPolicy)
 	if !decision.Allowed {
 		if decision.Reason == "require_approval" {
