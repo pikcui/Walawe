@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 	"net/http"
 	"net/mail"
@@ -120,11 +121,20 @@ func AdminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// FIX: Mengambil agentID dari context (JWT Admin yang login)
 func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	// Ambil AgentID dari Admin yang sedang login
+	adminAgentID, ok := r.Context().Value(agentIDKey).(string)
+	if !ok || adminAgentID == "" {
+		http.Error(w, "Unauthorized: Missing agent context", http.StatusUnauthorized)
+		return
+	}
+
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -134,21 +144,29 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
+
 	if req.Role != "admin" && req.Role != "viewer" {
 		http.Error(w, "Invalid role", http.StatusBadRequest)
 		return
 	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
-	defaultAgentID := "11111111-1111-1111-1111-111111111111"
-	_, err = dbPool.Exec(r.Context(), "INSERT INTO users (email, password_hash, role, agent_id) VALUES ($1, $2, $3, $4::uuid)", req.Email, string(hashedPassword), req.Role, defaultAgentID)
+
+	// Gunakan adminAgentID, bukan hardcode
+	_, err = dbPool.Exec(r.Context(),
+		"INSERT INTO users (email, password_hash, role, agent_id) VALUES ($1, $2, $3, $4::uuid)",
+		req.Email, string(hashedPassword), req.Role, adminAgentID)
+
 	if err != nil {
+		log.Printf("Create User Error: %v", err)
 		http.Error(w, "Failed to create user (email might already exist)", http.StatusConflict)
 		return
 	}
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("User created successfully"))
 }
@@ -350,93 +368,53 @@ func handleAdminDeposit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"message": "Deposit successful", "deposit_id": requestID, "amount": req.AmountMicroUSD})
 }
 
-// ============================================================
-// WEB3 DEPOSIT VERIFICATION
-// ============================================================
 func handleWeb3Deposit(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method_not_allowed"})
 		return
 	}
-
 	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
 	if !ok || agentIDStr == "" {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
-
 	var req struct {
 		TxHash string `json:"tx_hash"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TxHash == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_request"})
 		return
 	}
 
-	if req.TxHash == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing_tx_hash"})
-		return
-	}
-
-	// 1. Hubungkan ke RPC Base Sepolia (Gunakan public RPC untuk testing)
 	client, err := ethclient.Dial("https://sepolia.base.org")
 	if err != nil {
-		log.Printf("web3_deposit: failed to connect to RPC: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "rpc_connection_failed"})
 		return
 	}
 
-	// 2. Ambil Receipt Transaksi
 	txHash := common.HexToHash(req.TxHash)
 	receipt, err := client.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
-		log.Printf("web3_deposit: failed to get receipt: %v", err)
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "tx_not_found_or_pending"})
 		return
 	}
-
-	// 3. Pastikan transaksi sukses (status 1)
 	if receipt.Status != 1 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "transaction_reverted"})
 		return
 	}
 
-	// --- CATATAN PENTING UNTUK PRODUCTION ---
-	// Dalam produksi, di sini kita harus mem-parsing event log ERC20 (Transfer)
-	// dari receipt untuk mendapatkan nilai transfer dan alamat tujuan yang persis.
-	// Namun, karena ini tahap awal (Testnet UI Test), kita asumsikan valid
-	// jika transaksinya ada dan sukses.
-
-	// Nilai hardcode 10 USDC (karena UI kita mengetes 10)
-	// Idealnya, angka ini didapat dari event log (receipt.Logs).
-	amountMicroUsd := int64(10000000) // $10.00
-
+	amountMicroUsd := int64(10000000) // $10.00 Hardcoded untuk mockup Testnet
 	agentID := ledger.AccountID(agentIDStr)
 	requestID := fmt.Sprintf("web3_%s", req.TxHash)
 
-	// 4. Masukkan ke Ledger (Gunakan Idempotency Key = TxHash agar tidak double spend)
 	err = dbStore.Do(r.Context(), func(tx ledger.Tx) error {
-		_, err := tx.InsertEntry(ledger.Entry{
-			Debit:          "system_treasury",
-			Credit:         agentID,
-			Amount:         ledger.MicroUSD(amountMicroUsd),
-			RefType:        "web3_deposit",
-			RefID:          req.TxHash,
-			IdempotencyKey: requestID,
-		})
+		_, err := tx.InsertEntry(ledger.Entry{Debit: "system_treasury", Credit: agentID, Amount: ledger.MicroUSD(amountMicroUsd), RefType: "web3_deposit", RefID: req.TxHash, IdempotencyKey: requestID})
 		return err
 	})
-
 	if err != nil {
-		// Jika error karena sudah ada (idempotency key conflict), berarti tx sudah pernah diproses
-		log.Printf("web3_deposit: ledger failed: %v", err)
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "transaction_already_processed_or_failed"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Web3 Deposit verified and recorded",
-		"tx_hash": req.TxHash,
-		"amount":  amountMicroUsd,
-	})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"message": "Web3 Deposit verified and recorded", "tx_hash": req.TxHash, "amount": amountMicroUsd})
 }
