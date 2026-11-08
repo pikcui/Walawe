@@ -10,32 +10,19 @@ const Icons = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
-export default function Playground() { fix/playground-error-handling
-
-  // Inisialisasi state dari localStorage (jika ada)
-     main
+export default function Playground() {
   const [walaweApiKey, setWalaweApiKey] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('pg_walawe_key') || '';
     return '';
   });
   
-  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'openrouter'>('openrouter'); fix/playground-error-handling
-
+  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'openrouter'>('openrouter');
   
   const [providerKey, setProviderKey] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('pg_provider_key') || '';
     return '';
   });
   
-  const [model, setModel] = useState('meta-llama/llama-3-8b-instruct:free');
-     main
-  
-  const [providerKey, setProviderKey] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('pg_provider_key') || '';
-    return '';
-  });
-  
-  // Gunakan model gratis yang lebih baru dan stabil di OpenRouter
   const [model, setModel] = useState('meta-llama/llama-3.1-8b-instruct:free');
   
   const [messages, setMessages] = useState<{ role: string; content: string; isError?: boolean }[]>([]);
@@ -44,15 +31,6 @@ export default function Playground() { fix/playground-error-handling
   const [error, setError] = useState('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Simpan ke localStorage setiap kali ada perubahan
-  useEffect(() => {
-    localStorage.setItem('pg_walawe_key', walaweApiKey);
-  }, [walaweApiKey]);
-
-  useEffect(() => {
-    localStorage.setItem('pg_provider_key', providerKey);
-  }, [providerKey]);
 
   useEffect(() => {
     localStorage.setItem('pg_walawe_key', walaweApiKey);
@@ -131,7 +109,6 @@ export default function Playground() { fix/playground-error-handling
               try {
                 const parsed = JSON.parse(data);
                 
-                // TANGKAP ERROR DARI BACKEND
                 if (parsed.error) {
                   hasError = true;
                   setMessages((prev) => {
@@ -150,15 +127,12 @@ export default function Playground() { fix/playground-error-handling
                     return newMsgs;
                   });
                 }
-              } catch (e) {
-                // Abaikan chunk yang belum lengkap
-              }
+              } catch (e) {}
             }
           }
         }
       }
       
-      // Jika stream selesai tapi tidak ada teks dan tidak ada error, hapus bubble kosong
       if (assistantMsg === '' && !hasError) {
         setMessages((prev) => prev.slice(0, -1));
         setError("AI tidak mengembalikan jawaban (mungkin model sedang sibuk).");
@@ -166,7 +140,6 @@ export default function Playground() { fix/playground-error-handling
 
     } catch (err: any) {
       setError(err.message || 'Terjadi kesalahan sistem.');
-      // Hapus bubble kosong jika gagal total
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
@@ -194,10 +167,6 @@ export default function Playground() { fix/playground-error-handling
               placeholder="wlw_..." 
               className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
             />
- fix/playground-error-handling
-
-            <p className="text-xs text-neutral-500 mt-1">Kunci ini otomatis tersimpan di browser Anda.</p>
- main
           </div>
 
           <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit overflow-x-auto">
