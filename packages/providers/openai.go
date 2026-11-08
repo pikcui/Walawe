@@ -5,17 +5,18 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
+	"os"
 	"strings"
 )
 
 type OpenAIProvider struct {
-	ApiKey string
+	apiKey string
 }
 
 func NewOpenAIProvider(apiKey string) *OpenAIProvider {
-	return &OpenAIProvider{ApiKey: apiKey}
+	return &OpenAIProvider{apiKey: apiKey}
 }
 
 func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt string) (<-chan ResponseChunk, <-chan error) {
@@ -26,6 +27,12 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 		defer close(chunks)
 		defer close(errs)
 
+		// Ambil Base URL dari ENV, jika kosong pakai default OpenAI
+		baseURL := os.Getenv("OPENAI_BASE_URL")
+		if baseURL == "" {
+			baseURL = "https://api.openai.com/v1"
+		}
+
 		reqBody := map[string]interface{}{
 			"model": model,
 			"messages": []map[string]string{
@@ -33,37 +40,36 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 			},
 			"stream": true,
 		}
-		jsonBytes, _ := json.Marshal(reqBody)
 
-		req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonBytes))
+		jsonBody, err := json.Marshal(reqBody)
+		if err != nil {
+			errs <- err
+			return
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/chat/completions", bytes.NewBuffer(jsonBody))
 		if err != nil {
 			errs <- err
 			return
 		}
 
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+p.ApiKey)
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
 
-		resp, err := http.DefaultClient.Do(req)
+		// Header khusus untuk OpenRouter
+		req.Header.Set("HTTP-Referer", "https://walawe.dev")
+		req.Header.Set("X-Title", "Walawe")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
 		if err != nil {
 			errs <- err
 			return
 		}
 		defer resp.Body.Close()
 
-		// Jika status bukan 200 (misal: 401 Unauthorized atau 429 Rate Limit)
 		if resp.StatusCode != http.StatusOK {
-			var errBody struct {
-				Error struct {
-					Message string `json:"message"`
-				} `json:"error"`
-			}
-			json.NewDecoder(resp.Body).Decode(&errBody)
-			if errBody.Error.Message != "" {
-				errs <- fmt.Errorf("openai api error (%d): %s", resp.StatusCode, errBody.Error.Message)
-			} else {
-				errs <- fmt.Errorf("openai api error: status %d", resp.StatusCode)
-			}
+			errs <- errors.New("provider error: " + resp.Status)
 			return
 		}
 
@@ -73,10 +79,10 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 			if strings.HasPrefix(line, "data: ") {
 				data := strings.TrimPrefix(line, "data: ")
 				if data == "[DONE]" {
-					break
+					return
 				}
 
-				var parsed struct {
+				var streamResp struct {
 					Choices []struct {
 						Delta struct {
 							Content string `json:"content"`
@@ -84,13 +90,11 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 					} `json:"choices"`
 				}
 
-				// Jika JSON rusak, lewati baris ini (jangan crash)
-				if err := json.Unmarshal([]byte(data), &parsed); err != nil {
-					continue
-				}
-
-				if len(parsed.Choices) > 0 && parsed.Choices[0].Delta.Content != "" {
-					chunks <- ResponseChunk{Text: parsed.Choices[0].Delta.Content}
+				if err := json.Unmarshal([]byte(data), &streamResp); err == nil {
+					if len(streamResp.Choices) > 0 && streamResp.Choices[0].Delta.Content != "" {
+						// GUNAKAN ResponseChunk
+						chunks <- ResponseChunk{Text: streamResp.Choices[0].Delta.Content}
+					}
 				}
 			}
 		}
