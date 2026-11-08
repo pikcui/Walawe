@@ -149,8 +149,6 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	switch providerName {
 	case "anthropic":
 		activeProvider = providers.NewAnthropicProvider(providerKey)
-	case "openrouter":
-		activeProvider = providers.NewOpenRouterProvider(providerKey)
 	case "gemini":
 		activeProvider = providers.NewGeminiProvider(providerKey)
 	case "groq":
