@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -27,11 +26,7 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 		defer close(chunks)
 		defer close(errs)
 
-		// Ambil Base URL dari ENV, jika kosong pakai default OpenAI
-		baseURL := os.Getenv("OPENAI_BASE_URL")
-		if baseURL == "" {
-			baseURL = "https://api.openai.com/v1"
-		}
+		baseURL := "https://api.openai.com/v1"
 
 		reqBody := map[string]interface{}{
 			"model": model,
@@ -55,10 +50,6 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)
-
-		// Header khusus untuk OpenRouter
-		req.Header.Set("HTTP-Referer", "https://walawe.dev")
-		req.Header.Set("X-Title", "Walawe")
 
 		client := &http.Client{}
 		resp, err := client.Do(req)
@@ -92,7 +83,6 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, model string, prompt st
 
 				if err := json.Unmarshal([]byte(data), &streamResp); err == nil {
 					if len(streamResp.Choices) > 0 && streamResp.Choices[0].Delta.Content != "" {
-						// GUNAKAN ResponseChunk
 						chunks <- ResponseChunk{Text: streamResp.Choices[0].Delta.Content}
 					}
 				}
