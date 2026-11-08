@@ -35,7 +35,6 @@ export default function Playground() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // State untuk show/hide password
   const [showWalaweKey, setShowWalaweKey] = useState(false);
   const [showProviderKey, setShowProviderKey] = useState(false);
   
@@ -57,7 +56,6 @@ export default function Playground() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Trim untuk membuang spasi tak terlihat
     const cleanWalaweKey = walaweApiKey.trim();
     const cleanProviderKey = providerKey.trim();
 
@@ -73,14 +71,21 @@ export default function Playground() {
     setIsLoading(true);
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${cleanWalaweKey}`,
+        'X-Provider-Key': cleanProviderKey,
+        'X-Provider-Name': provider,
+      };
+
+      if (provider === 'openrouter') {
+        headers['HTTP-Referer'] = 'https://walawe-amber.vercel.app';
+        headers['X-Title'] = 'Walawe Playground';
+      }
+
       const res = await fetch(`${API_URL}/v1/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${cleanWalaweKey}`,
-          'X-Provider-Key': cleanProviderKey,
-          'X-Provider-Name': provider,
-        },
+        headers: headers,
         body: JSON.stringify({
           model: model.trim(),
           messages: [{ role: 'user', content: userMsg }],
@@ -165,12 +170,12 @@ export default function Playground() {
             </label>
             <div className="relative">
               <input 
-                type={showWalaweKey ? "text" : "password"}
-                autoComplete="new-password"
+                type="text"
+                autoComplete="off"
                 value={walaweApiKey} 
                 onChange={e => setWalaweApiKey(e.target.value)} 
                 placeholder="wlw_..." 
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-4 pr-10 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
+                className={`w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-4 pr-10 py-2 text-white text-sm focus:outline-none focus:border-neutral-500 ${!showWalaweKey ? '[-webkit-text-security:disc]' : ''}`} 
               />
               <button type="button" onClick={() => setShowWalaweKey(!showWalaweKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">
                 {showWalaweKey ? <Icons.EyeOff /> : <Icons.Eye />}
@@ -191,12 +196,12 @@ export default function Playground() {
               </label>
               <div className="relative">
                 <input 
-                  type={showProviderKey ? "text" : "password"}
-                  autoComplete="new-password"
+                  type="text"
+                  autoComplete="off"
                   value={providerKey} 
                   onChange={e => setProviderKey(e.target.value)} 
                   placeholder={provider === 'openai' ? 'sk-proj-...' : provider === 'anthropic' ? 'sk-ant-...' : 'sk-or-v1-...'} 
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-4 pr-10 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
+                  className={`w-full bg-neutral-900 border border-neutral-700 rounded-lg pl-4 pr-10 py-2 text-white text-sm focus:outline-none focus:border-neutral-500 ${!showProviderKey ? '[-webkit-text-security:disc]' : ''}`} 
                 />
                 <button type="button" onClick={() => setShowProviderKey(!showProviderKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">
                   {showProviderKey ? <Icons.EyeOff /> : <Icons.Eye />}
