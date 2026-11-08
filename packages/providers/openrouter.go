@@ -48,7 +48,6 @@ func (p *OpenRouterProvider) StreamChat(ctx context.Context, model string, promp
 			return
 		}
 
-		// Header yang sangat ketat untuk OpenRouter
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)
 		req.Header.Set("HTTP-Referer", "https://walawe-amber.vercel.app")
@@ -63,7 +62,6 @@ func (p *OpenRouterProvider) StreamChat(ctx context.Context, model string, promp
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			// Baca body error untuk debugging
 			var errBody struct {
 				Error struct {
 					Message string `json:"message"`
