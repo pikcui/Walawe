@@ -19,7 +19,9 @@ const Icons = {
   User: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
   Shield: () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>),
   Key: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>),
-  Trash: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>)
+  Trash: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>),
+  Home: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>),
+  Message: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>)
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
@@ -28,19 +30,15 @@ const ERC20_ABI = [
   { "constant": false, "inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function" }
 ];
 
-const parseJwt = (token: string) => {
-  try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
-};
+const parseJwt = (token: string) => { try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; } };
 
 export default function Home() {
   const { t, lang, setLang } = useLanguage();
   const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'policy' | 'playground'>('overview');
-  
   const [balance, setBalance] = useState<number | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
   const [apiKeys, setApiKeys] = useState<any[]>([]);
-  
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -61,7 +59,6 @@ export default function Home() {
   const [showWalletModal, setShowWalletModal] = useState(false);
 
   const [newGeneratedKey, setNewGeneratedKey] = useState<string | null>(null);
-
   const [policyData, setPolicyData] = useState<any>(null);
   const [policyModels, setPolicyModels] = useState('');
   const [maxTx, setMaxTx] = useState('');
@@ -74,7 +71,6 @@ export default function Home() {
   const { switchChain } = useSwitchChain();
   const { data: hash, writeContract, isPending, reset } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
-
   const router = useRouter();
 
   const formatCurrency = (microUsd: number) => {
@@ -84,22 +80,13 @@ export default function Home() {
     return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
   };
 
-  useEffect(() => {
-    if (isConnected) setShowWalletModal(false);
-  }, [isConnected]);
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
+  useEffect(() => { if (isConnected) setShowWalletModal(false); }, [isConnected]);
+  useEffect(() => { if (toast) { const timer = setTimeout(() => setToast(null), 4000); return () => clearTimeout(timer); } }, [toast]);
 
   const fetchData = async () => {
     const token = localStorage.getItem('walawe_token');
     const role = localStorage.getItem('walawe_role');
     if (!token) { router.push('/login'); return; }
-    
     const decoded = parseJwt(token);
     if (decoded && decoded.sub) setUserEmail(decoded.sub);
     setUserRole(role);
@@ -114,18 +101,11 @@ export default function Home() {
         fetch(`${API_URL}/admin/policy`, { headers })
       ]);
       if (balRes.status === 401) { localStorage.clear(); router.push('/login'); return; }
-      
-      const balData = await balRes.json();
-      const appData = await appRes.json();
-      const usageData = await usageRes.json();
-      const keysData = await keysRes.json();
-      const policyJson = await policyRes.json();
-
+      const [balData, appData, usageData, keysData, policyJson] = await Promise.all([balRes.json(), appRes.json(), usageRes.json(), keysRes.json(), policyRes.json()]);
       setBalance(balData.balance_micro_usd);
       setApprovals(Array.isArray(appData) ? appData : []);
       setChartData(Array.isArray(usageData) ? usageData : []);
       setApiKeys(Array.isArray(keysData) ? keysData : []);
-      
       if (policyJson && policyJson.allowed_models) {
         setPolicyData(policyJson);
         setPolicyModels(policyJson.allowed_models.join(', '));
@@ -137,47 +117,28 @@ export default function Home() {
   };
 
   useEffect(() => { setMounted(true); fetchData(); }, []);
-
-  // Refresh data setiap kali pindah ke tab Overview
-  useEffect(() => {
-    if (activeTab === 'overview') {
-      fetchData();
-    }
-  }, [activeTab]);
+  useEffect(() => { if (activeTab === 'overview') fetchData(); }, [activeTab]);
 
   useEffect(() => {
     if (isConfirmed && hash) {
       const submit = async () => {
         const token = localStorage.getItem('walawe_token');
         try {
-          const res = await fetch(`${API_URL}/admin/deposit-web3`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ tx_hash: hash })
-          });
-          if (res.ok) {
-            setToast({ msg: t.depositSuccess, type: 'success' });
-            setShowAddFunds(false);
-            setDepositAmount('');
-            reset(); 
-            fetchData();
-          }
+          const res = await fetch(`${API_URL}/admin/deposit-web3`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ tx_hash: hash }) });
+          if (res.ok) { setToast({ msg: t.depositSuccess, type: 'success' }); setShowAddFunds(false); setDepositAmount(''); reset(); fetchData(); }
         } catch (err) { console.error(err); }
       };
       submit();
     }
   }, [isConfirmed, hash]);
 
-  useEffect(() => {
-    if (!showAddFunds) reset();
-  }, [showAddFunds]);
+  useEffect(() => { if (!showAddFunds) reset(); }, [showAddFunds]);
 
   const resolveRequest = async (id: string, action: 'approve' | 'reject') => {
     const token = localStorage.getItem('walawe_token');
     try {
       setApprovals((prev) => prev.filter((req) => req.id !== id));
-      const res = await fetch(`${API_URL}/admin/approvals/resolve`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id, action })
-      });
+      const res = await fetch(`${API_URL}/admin/approvals/resolve`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id, action }) });
       if (res.status === 403) { setToast({ msg: "Forbidden: You do not have permission.", type: 'error' }); fetchData(); return; }
       fetchData();
     } catch (err) { console.error(err); fetchData(); }
@@ -187,9 +148,7 @@ export default function Home() {
     e.preventDefault();
     const token = localStorage.getItem('walawe_token');
     try {
-      const res = await fetch(`${API_URL}/admin/users`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole })
-      });
+      const res = await fetch(`${API_URL}/admin/users`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole }) });
       if (res.ok) { setToast({ msg: "User created successfully!", type: 'success' }); setShowAddUser(false); setNewEmail(''); setNewPassword(''); } else { setToast({ msg: "Failed to create user.", type: 'error' }); }
     } catch (err) { console.error(err); }
   };
@@ -201,9 +160,7 @@ export default function Home() {
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     const microUsd = Math.round(parsedAmount * 1000000);
     try {
-      const res = await fetch(`${API_URL}/admin/deposit`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ amount_micro_usd: microUsd })
-      });
+      const res = await fetch(`${API_URL}/admin/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ amount_micro_usd: microUsd }) });
       if (res.ok) { setShowAddFunds(false); setDepositAmount(''); fetchData(); setToast({ msg: "Deposit successful", type: 'success' }); } 
     } catch (err) { console.error(err); }
   };
@@ -215,40 +172,25 @@ export default function Home() {
     const parsedAmount = parseFloat(depositAmount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return;
     const amountInUnits = parseUnits(depositAmount, 6);
-    try {
-      writeContract({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'transfer', args: [address as `0x${string}`, amountInUnits] });
-    } catch (err) { console.error(err); }
+    try { writeContract({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: 'transfer', args: [address as `0x${string}`, amountInUnits] }); } catch (err) { console.error(err); }
   };
 
   const handleGenerateKey = async () => {
     const token = localStorage.getItem('walawe_token');
     try {
-      const res = await fetch(`${API_URL}/admin/api-keys/create`, {
-        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setNewGeneratedKey(data.api_key);
-        fetchData();
-      }
+      const res = await fetch(`${API_URL}/admin/api-keys/create`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) { const data = await res.json(); setNewGeneratedKey(data.api_key); fetchData(); }
     } catch (err) { console.error(err); }
   };
 
   const handleRevokeKey = (id: string) => {
     setConfirmModal({
-      title: "Revoke API Key?",
-      desc: "Aplikasi yang menggunakan key ini akan langsung kehilangan akses.",
+      title: "Revoke API Key?", desc: "Aplikasi yang menggunakan key ini akan langsung kehilangan akses.",
       onConfirm: async () => {
         const token = localStorage.getItem('walawe_token');
         try {
-          const res = await fetch(`${API_URL}/admin/api-keys/revoke`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ id })
-          });
-          if (res.ok) {
-            setToast({ msg: "API Key revoked", type: 'success' });
-            fetchData();
-          }
+          const res = await fetch(`${API_URL}/admin/api-keys/revoke`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id }) });
+          if (res.ok) { setToast({ msg: "API Key revoked", type: 'success' }); fetchData(); }
         } catch (err) { console.error(err); }
       }
     });
@@ -258,45 +200,30 @@ export default function Home() {
     e.preventDefault();
     setSavingPolicy(true);
     const token = localStorage.getItem('walawe_token');
-    
     const modelsArray = policyModels.split(',').map(m => m.trim()).filter(m => m !== '');
-    const newPolicy = {
-      allowed_models: modelsArray,
-      max_per_tx_micro_usd: Math.round(parseFloat(maxTx) * 1000000),
-      daily_limit_micro_usd: Math.round(parseFloat(dailyLimit) * 1000000),
-      monthly_limit_micro_usd: Math.round(parseFloat(dailyLimit) * 1000000 * 30)
-    };
-
+    const newPolicy = { allowed_models: modelsArray, max_per_tx_micro_usd: Math.round(parseFloat(maxTx) * 1000000), daily_limit_micro_usd: Math.round(parseFloat(dailyLimit) * 1000000), monthly_limit_micro_usd: Math.round(parseFloat(dailyLimit) * 1000000 * 30) };
     try {
-      const res = await fetch(`${API_URL}/admin/policy/update`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(newPolicy)
-      });
-      if (res.ok) {
-        setToast({ msg: "Policy updated successfully", type: 'success' });
-        fetchData();
-      } else {
-        setToast({ msg: "Failed to update policy", type: 'error' });
-      }
+      const res = await fetch(`${API_URL}/admin/policy/update`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(newPolicy) });
+      if (res.ok) { setToast({ msg: "Policy updated successfully", type: 'success' }); fetchData(); } else { setToast({ msg: "Failed to update policy", type: 'error' }); }
     } catch (err) { console.error(err); setToast({ msg: "Network error", type: 'error' }); }
     finally { setSavingPolicy(false); }
   };
 
   const handleDisconnect = () => {
-    setConfirmModal({
-      title: "Putuskan Dompet?",
-      desc: "Anda harus menghubungkan ulang dompet jika ingin melakukan deposit Web3 lagi.",
-      onConfirm: () => disconnect()
-    });
+    setConfirmModal({ title: "Putuskan Dompet?", desc: "Anda harus menghubungkan ulang dompet jika ingin melakukan deposit Web3 lagi.", onConfirm: () => disconnect() });
   };
 
   const handleLogout = () => { localStorage.clear(); router.push('/login'); };
-
   const fadeIn = `transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`;
 
   return (
-    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative">
+    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative overflow-x-hidden">
       
+      {/* WATERMARK */}
+      <div className="fixed bottom-6 right-6 text-[10px] text-neutral-600/50 pointer-events-none select-none font-mono tracking-widest uppercase z-50">
+        by Galang
+      </div>
+
       {toast && (
         <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-2xl z-[200] font-medium text-sm animate-slide-down flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-500 text-black' : 'bg-red-600 text-white'}`}>
           {toast.type === 'success' ? <Icons.Check /> : <Icons.X />}
@@ -345,10 +272,10 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col space-y-1 border-t border-neutral-900 pt-6 mb-6">
-              <button onClick={() => { setActiveTab('overview'); setShowMobileMenu(false); }} className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>Overview</button>
-              <button onClick={() => { setActiveTab('api-keys'); setShowMobileMenu(false); }} className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>API Keys</button>
-              <button onClick={() => { setActiveTab('policy'); setShowMobileMenu(false); }} className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'policy' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>Policy Engine</button>
-              <button onClick={() => { setActiveTab('playground'); setShowMobileMenu(false); }} className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'playground' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>Playground</button>
+              <button onClick={() => { setActiveTab('overview'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Home /> Overview</button>
+              <button onClick={() => { setActiveTab('api-keys'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Key /> API Keys</button>
+              <button onClick={() => { setActiveTab('policy'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'policy' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Shield /> Policy Engine</button>
+              <button onClick={() => { setActiveTab('playground'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'playground' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Message /> Playground</button>
             </div>
             
             <div className="flex flex-col space-y-6 flex-grow border-t border-neutral-900 pt-6">
@@ -476,16 +403,22 @@ export default function Home() {
             <button onClick={handleLogout} className="text-xs text-neutral-500 hover:text-white transition-colors">{t.logout}</button>
           </div>
 
+          {/* Mobile Topbar (Add Funds + Hamburger) */}
           <div className="flex md:hidden items-center gap-3">
             {isConnected && (
                <div className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span><span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 4)}...{address?.slice(-3)}</span></div>
+            )}
+            {userRole === 'admin' && (
+              <button onClick={() => setShowAddFunds(true)} className="text-white p-1 active:scale-90 transition-transform bg-neutral-800 rounded-md">
+                <Icons.Plus />
+              </button>
             )}
             <button onClick={() => setShowMobileMenu(true)} className="text-white p-1 active:scale-90 transition-transform"><Icons.Menu /></button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 space-y-8">
+      <main className={`max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 ${activeTab === 'playground' ? 'h-[calc(100vh-64px)] overflow-hidden' : 'space-y-8'}`}>
         
         {activeTab === 'overview' && (
           <div className="space-y-8 animate-fade-in">
@@ -494,11 +427,6 @@ export default function Home() {
                 <h1 className="text-3xl font-bold text-white tracking-tighter">{t.overview}</h1>
                 <p className="text-neutral-500 text-sm mt-1">{t.overviewDesc}</p>
               </div>
-              {userRole === 'admin' && (
-                <button onClick={() => setShowAddFunds(true)} className="flex items-center justify-center gap-2 bg-white text-black px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-neutral-200 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-                  <Icons.Plus /> {t.addFunds}
-                </button>
-              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-6 border-y border-neutral-900">
@@ -521,16 +449,16 @@ export default function Home() {
               <div className="h-72 w-full">
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
+                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ffffff" stopOpacity={0.2}/>
+                          <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4}/>
                           <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
                       <XAxis dataKey="date" stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(4)}`} />
+                      <YAxis width={60} stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(4)}`} />
                       <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #333', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} formatter={(value: number) => [`$${(value / 1000000).toFixed(5)}`, 'Spent']} />
                       <Area type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
                     </AreaChart>
@@ -610,11 +538,7 @@ export default function Home() {
           </div>
         )}
 
-        {activeTab === 'playground' && (
-          <div className="animate-fade-in">
-            <Playground />
-          </div>
-        )}
+        {activeTab === 'playground' && <Playground />}
 
         {activeTab === 'policy' && (
           <div className="space-y-8 animate-fade-in max-w-2xl mx-auto">
