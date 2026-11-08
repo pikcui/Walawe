@@ -8,21 +8,24 @@ const Icons = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
-interface PlaygroundProps {
-  config: {
-    walaweApiKey: string;
-    provider: string;
-    providerKey: string;
-    model: string;
-  };
-}
-
-export default function Playground({ config }: PlaygroundProps) {
+export default function Playground() {
   const [messages, setMessages] = useState<{ role: string; content: string; isError?: boolean }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load Config from localStorage
+  const [config, setConfig] = useState({ walaweApiKey: '', provider: 'gemini', providerKey: '', model: 'gemini-3.5-flash-lite' });
+
+  useEffect(() => {
+    setConfig({
+      walaweApiKey: localStorage.getItem('pg_walawe_key') || '',
+      provider: localStorage.getItem('pg_provider') || 'gemini',
+      providerKey: localStorage.getItem('pg_provider_key') || '',
+      model: localStorage.getItem('pg_model') || 'gemini-3.5-flash-lite'
+    });
+  }, []);
 
   const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
   useEffect(() => { scrollToBottom(); }, [messages, isLoading]);
@@ -33,7 +36,7 @@ export default function Playground({ config }: PlaygroundProps) {
     const cleanProviderKey = config.providerKey.trim();
 
     if (!input.trim() || !cleanProviderKey || !cleanWalaweKey) {
-      setError('API Key Walawe dan Provider Key wajib diisi. Buka menu Settings di pojok kanan atas.');
+      setError('API Keys are missing. Please configure them in Settings.');
       return;
     }
 
@@ -102,10 +105,10 @@ export default function Playground({ config }: PlaygroundProps) {
       }
       if (assistantMsg === '' && !hasError) {
         setMessages((prev) => prev.slice(0, -1));
-        setError("AI tidak mengembalikan jawaban.");
+        setError("AI returned no response.");
       }
     } catch (err: any) {
-      setError(err.message || 'Terjadi kesalahan sistem.');
+      setError(err.message || 'System error.');
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
@@ -114,7 +117,6 @@ export default function Playground({ config }: PlaygroundProps) {
 
   return (
     <div className="flex flex-col h-full w-full bg-black">
-      {/* Chat Area - Scrollable */}
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-6 scrollbar-thin">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-neutral-600 space-y-4">
@@ -140,7 +142,6 @@ export default function Playground({ config }: PlaygroundProps) {
         <div ref={messagesEndRef} className="h-2" />
       </div>
 
-      {/* Input Area - Fixed at Bottom */}
       <div className="shrink-0 p-4 md:px-6 bg-black border-t border-neutral-900 z-10">
         <form onSubmit={handleSend} className="relative flex items-center bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg focus-within:border-neutral-600 transition-colors">
           <input type="text" value={input} onChange={e => setInput(e.target.value)} placeholder="Message Agent..." disabled={isLoading} className="w-full bg-transparent px-5 py-4 text-white text-[15px] focus:outline-none placeholder:text-neutral-600" />

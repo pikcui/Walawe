@@ -30,14 +30,14 @@ const Icons = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const ERC20_ABI = [
-  { "constant": false, "inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function" }
+  { "constant": false, "inputs": [{"name": "_to", "type": "address"}, { "name": "_value", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function" }
 ];
 
 const parseJwt = (token: string) => { try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; } };
 
 export default function Home() {
-  const { t, lang, setLang } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'policy' | 'playground'>('overview');
+  const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'policy' | 'playground' | 'settings'>('overview');
   
   const [balance, setBalance] = useState<number | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
@@ -49,8 +49,7 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null); 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // Playground Config State
-  const [showPgSettings, setShowPgSettings] = useState(false);
+  // Playground Config State (Sebagai Halaman Penuh)
   const [pgWalaweKey, setPgWalaweKey] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_walawe_key') || '' : '');
   const [pgProvider, setPgProvider] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_provider') || 'gemini' : 'gemini');
   const [pgProviderKey, setPgProviderKey] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_provider_key') || '' : '');
@@ -203,7 +202,7 @@ export default function Home() {
 
   const handleRevokeKey = (id: string) => {
     setConfirmModal({
-      title: "Revoke API Key?", desc: "Aplikasi yang menggunakan key ini akan langsung kehilangan akses.",
+      title: "Revoke API Key?", desc: "Applications using this key will immediately lose access.",
       onConfirm: async () => {
         const token = localStorage.getItem('walawe_token');
         try {
@@ -228,7 +227,7 @@ export default function Home() {
   };
 
   const handleDisconnect = () => {
-    setConfirmModal({ title: "Putuskan Dompet?", desc: "Anda harus menghubungkan ulang dompet jika ingin melakukan deposit Web3 lagi.", onConfirm: () => disconnect() });
+    setConfirmModal({ title: "Disconnect Wallet?", desc: "You must reconnect your wallet if you want to make a Web3 deposit again.", onConfirm: () => disconnect() });
   };
 
   const handleLogout = () => { localStorage.clear(); router.push('/login'); };
@@ -250,8 +249,8 @@ export default function Home() {
             <h3 className="text-xl font-bold text-white">{confirmModal.title}</h3>
             <p className="text-sm text-neutral-400">{confirmModal.desc}</p>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmModal(null)} className="flex-1 bg-neutral-800 text-white py-2.5 rounded-lg font-medium active:scale-95 transition-all">Batal</button>
-              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-medium active:scale-95 transition-all">Ya, Lanjutkan</button>
+              <button onClick={() => setConfirmModal(null)} className="flex-1 bg-neutral-800 text-white py-2.5 rounded-lg font-medium active:scale-95 transition-all">Cancel</button>
+              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-medium active:scale-95 transition-all">Yes, Continue</button>
             </div>
           </div>
         </div>
@@ -260,47 +259,11 @@ export default function Home() {
       {newGeneratedKey && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl text-center space-y-6 animate-scale-in">
-            <h3 className="text-xl font-bold text-white">API Key Berhasil Dibuat</h3>
-            <p className="text-sm text-neutral-400">Simpan key ini sekarang. Anda <strong>tidak akan bisa melihatnya lagi</strong>.</p>
+            <h3 className="text-xl font-bold text-white">API Key Created</h3>
+            <p className="text-sm text-neutral-400">Save this key now. You <strong>will not be able to see it again</strong>.</p>
             <div className="bg-black border border-neutral-700 p-4 rounded text-left break-all text-green-400 font-mono text-sm">{newGeneratedKey}</div>
             <button onClick={() => navigator.clipboard.writeText(newGeneratedKey)} className="w-full bg-white text-black font-bold py-2.5 rounded-lg hover:bg-neutral-200 active:scale-95 transition-all">Copy API Key</button>
-            <button onClick={() => setNewGeneratedKey(null)} className="w-full bg-transparent border border-neutral-700 text-white font-medium py-2.5 rounded-lg hover:bg-neutral-800 active:scale-95 transition-all">Tutup</button>
-          </div>
-        </div>
-      )}
-
-      {/* PLAYGROUND SETTINGS MODAL */}
-      {showPgSettings && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative animate-scale-in">
-            <button onClick={() => setShowPgSettings(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
-            <h2 className="text-lg font-bold text-white mb-6">Playground Configuration</h2>
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Walawe API Key</label>
-                <div className="relative">
-                  <input type="text" autoComplete="off" value={pgWalaweKey} onChange={e => setPgWalaweKey(e.target.value)} placeholder="wlw_..." className={`w-full bg-black border border-neutral-800 rounded-lg pl-4 pr-10 py-2.5 text-white text-sm focus:outline-none focus:border-neutral-600 ${!showPgWalaweKey ? '[-webkit-text-security:disc]' : ''}`} />
-                  <button type="button" onClick={() => setShowPgWalaweKey(!showPgWalaweKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">{showPgWalaweKey ? <Icons.EyeOff /> : <Icons.Eye />}</button>
-                </div>
-              </div>
-              <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800">
-                {['gemini', 'groq', 'openai', 'anthropic'].map(p => (
-                  <button key={p} onClick={() => { setPgProvider(p); if(p==='openai') setPgModel('gpt-4o-mini'); if(p==='anthropic') setPgModel('claude-3-haiku-20240307'); if(p==='gemini') setPgModel('gemini-3.5-flash-lite'); if(p==='groq') setPgModel('llama3-8b-8192'); }} className={`flex-1 py-1.5 text-xs font-medium rounded-md capitalize transition-colors ${pgProvider === p ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>{p}</button>
-                ))}
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{pgProvider} Provider Key (BYOK)</label>
-                <div className="relative">
-                  <input type="text" autoComplete="off" value={pgProviderKey} onChange={e => setPgProviderKey(e.target.value)} placeholder="API Key..." className={`w-full bg-black border border-neutral-800 rounded-lg pl-4 pr-10 py-2.5 text-white text-sm focus:outline-none focus:border-neutral-600 ${!showPgProviderKey ? '[-webkit-text-security:disc]' : ''}`} />
-                  <button type="button" onClick={() => setShowPgProviderKey(!showPgProviderKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">{showPgProviderKey ? <Icons.EyeOff /> : <Icons.Eye />}</button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Model Name</label>
-                <input type="text" value={pgModel} onChange={e => setPgModel(e.target.value)} className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-neutral-600" />
-              </div>
-              <button onClick={() => setShowPgSettings(false)} className="w-full bg-white text-black font-semibold py-3 rounded-lg hover:bg-neutral-200 transition-colors mt-2">Save & Close</button>
-            </div>
+            <button onClick={() => setNewGeneratedKey(null)} className="w-full bg-transparent border border-neutral-700 text-white font-medium py-2.5 rounded-lg hover:bg-neutral-800 active:scale-95 transition-all">Close</button>
           </div>
         </div>
       )}
@@ -342,20 +305,17 @@ export default function Home() {
                 <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Test your AI agent with Bring Your Own Key</span>
               </button>
 
-              <button onClick={() => { setShowPgSettings(true); setShowMobileMenu(false); }} className="flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors text-neutral-400 hover:text-white mt-2">
+              <button onClick={() => { setActiveTab('settings'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'settings' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
                 <div className="flex items-center gap-3 text-sm font-medium"><Icons.Settings /> Playground Settings</div>
                 <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Configure API Keys & Provider Models</span>
               </button>
             </div>
             
             <div className="flex flex-col space-y-4 shrink-0 border-t border-neutral-900 pt-4 mt-2">
-              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-xs text-neutral-400 hover:text-white transition-colors">
-                {lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
-              </button>
               {isConnected && (
                 <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl">
                   <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 6)}...{address?.slice(-4)}</span></div>
-                  <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-[10px] text-red-400 font-medium hover:text-red-300 transition-colors">Putuskan</button>
+                  <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-[10px] text-red-400 font-medium hover:text-red-300 transition-colors">Disconnect</button>
                 </div>
               )}
               {userRole === 'admin' && (
@@ -369,7 +329,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Add User Modal */}
+      {/* Modals (Add User, Add Funds, Wallet) */}
       {showAddUser && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
@@ -391,7 +351,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Add Funds Modal */}
       {showAddFunds && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
@@ -429,20 +388,19 @@ export default function Home() {
         </div>
       )}
 
-      {/* Wallet Modal */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
             <button onClick={() => setShowWalletModal(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-xl font-bold text-white mb-2">{t.connectWallet}</h2>
             {connectError && <div className="bg-red-950 border border-red-900 text-red-400 text-xs p-3 rounded mb-4 break-words">Error: {connectError.message}</div>}
-            <p className="text-sm text-neutral-500 mb-6">Gunakan WalletConnect untuk terhubung dari browser HP.</p>
-            <button onClick={() => { const wc = connectors.find(c => c.id === 'walletConnect'); if (wc) connect({ connector: wc }); }} disabled={isConnecting} className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-3 px-4 rounded-lg transition-all disabled:opacity-50">{isConnecting ? <span>Menghubungkan...</span> : <span>Connect with WalletConnect</span>}</button>
+            <p className="text-sm text-neutral-500 mb-6">Use WalletConnect to connect from your mobile browser.</p>
+            <button onClick={() => { const wc = connectors.find(c => c.id === 'walletConnect'); if (wc) connect({ connector: wc }); }} disabled={isConnecting} className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-3 px-4 rounded-lg transition-all disabled:opacity-50">{isConnecting ? <span>Connecting...</span> : <span>Connect with WalletConnect</span>}</button>
           </div>
         </div>
       )}
 
-      {/* TOPBAR (Locked at top) */}
+      {/* TOPBAR */}
       <nav className="shrink-0 border-b border-neutral-900 bg-black/90 backdrop-blur-xl z-40 w-full">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -455,11 +413,11 @@ export default function Home() {
               <button onClick={() => setActiveTab('api-keys')} className={`text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>API Keys</button>
               <button onClick={() => setActiveTab('policy')} className={`text-sm font-medium transition-colors ${activeTab === 'policy' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Policy</button>
               <button onClick={() => setActiveTab('playground')} className={`text-sm font-medium transition-colors ${activeTab === 'playground' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Playground</button>
+              <button onClick={() => setActiveTab('settings')} className={`text-sm font-medium transition-colors ${activeTab === 'settings' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Settings</button>
             </div>
           </div>
           
           <div className="hidden md:flex items-center gap-4">
-            <button onClick={() => setLang(lang === 'en' ? 'id' : 'en')} className="text-xs font-medium text-neutral-400 hover:text-white transition-colors">{lang === 'en' ? '🇮🇩 ID' : '🇬🇧 EN'}</button>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-neutral-400">{userEmail}</span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${userRole === 'admin' ? 'bg-white text-black' : 'bg-neutral-800 text-neutral-400'}`}>{userRole}</span>
@@ -474,14 +432,14 @@ export default function Home() {
             <button onClick={handleLogout} className="text-xs text-neutral-500 hover:text-white transition-colors">{t.logout}</button>
           </div>
 
-          {/* Mobile Topbar */}
+          {/* Mobile Topbar (Wallet Icon instead of +) */}
           <div className="flex md:hidden items-center gap-3">
             {isConnected && (
                <div className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span><span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 4)}...{address?.slice(-3)}</span></div>
             )}
             {userRole === 'admin' && (
-              <button onClick={() => setShowAddFunds(true)} className="text-white p-1 active:scale-90 transition-transform bg-neutral-800 rounded-md">
-                <Icons.Plus />
+              <button onClick={() => setShowAddFunds(true)} className="text-white p-1.5 active:scale-90 transition-transform bg-neutral-800 rounded-md" title="Add Funds">
+                <Icons.Wallet />
               </button>
             )}
             <button onClick={() => setShowMobileMenu(true)} className="text-white p-1 active:scale-90 transition-transform"><Icons.Menu /></button>
@@ -493,11 +451,12 @@ export default function Home() {
       <main className="flex-1 overflow-hidden relative flex flex-col">
         {activeTab === 'playground' ? (
           <div className="absolute inset-0 flex flex-col">
-             <Playground config={{ walaweApiKey: pgWalaweKey, provider: pgProvider, providerKey: pgProviderKey, model: pgModel }} />
+             <Playground />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 space-y-8">
+              
               {activeTab === 'overview' && (
                 <div className="space-y-8 animate-fade-in">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -664,6 +623,54 @@ export default function Home() {
                   </form>
                 </div>
               )}
+
+              {activeTab === 'settings' && (
+                <div className="space-y-8 animate-fade-in max-w-2xl mx-auto w-full">
+                  <div>
+                    <h1 className="text-3xl font-bold text-white tracking-tighter">Playground Settings</h1>
+                    <p className="text-neutral-500 text-sm mt-1">Configure your API keys and provider models for the Agent Playground.</p>
+                  </div>
+
+                  <div className="space-y-6 pt-4 border-t border-neutral-900">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Walawe API Key</label>
+                      <div className="relative">
+                        <input type="text" autoComplete="off" value={pgWalaweKey} onChange={e => setPgWalaweKey(e.target.value)} placeholder="wlw_..." className={`w-full bg-black border border-neutral-800 rounded-lg pl-4 pr-10 py-3 text-white text-sm focus:outline-none focus:border-neutral-600 ${!showPgWalaweKey ? '[-webkit-text-security:disc]' : ''}`} />
+                        <button type="button" onClick={() => setShowPgWalaweKey(!showPgWalaweKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">{showPgWalaweKey ? <Icons.EyeOff /> : <Icons.Eye />}</button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">AI Provider</label>
+                      <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit">
+                        {['gemini', 'groq', 'openai', 'anthropic'].map(p => (
+                          <button key={p} onClick={() => { setPgProvider(p); if(p==='openai') setPgModel('gpt-4o-mini'); if(p==='anthropic') setPgModel('claude-3-haiku-20240307'); if(p==='gemini') setPgModel('gemini-3.5-flash-lite'); if(p==='groq') setPgModel('llama3-8b-8192'); }} className={`flex-1 md:flex-none px-4 py-2 text-sm font-medium rounded-md capitalize transition-colors ${pgProvider === p ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}>{p}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{pgProvider} Provider Key (BYOK)</label>
+                      <div className="relative">
+                        <input type="text" autoComplete="off" value={pgProviderKey} onChange={e => setPgProviderKey(e.target.value)} placeholder="API Key..." className={`w-full bg-black border border-neutral-800 rounded-lg pl-4 pr-10 py-3 text-white text-sm focus:outline-none focus:border-neutral-600 ${!showPgProviderKey ? '[-webkit-text-security:disc]' : ''}`} />
+                        <button type="button" onClick={() => setShowPgProviderKey(!showPgProviderKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white">{showPgProviderKey ? <Icons.EyeOff /> : <Icons.Eye />}</button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Model Name</label>
+                      <input type="text" value={pgModel} onChange={e => setPgModel(e.target.value)} className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-neutral-600" />
+                    </div>
+
+                    <div className="pt-6">
+                      <button onClick={() => { setToast({ msg: "Settings saved successfully!", type: 'success' }); setActiveTab('playground'); }} className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-neutral-200 active:scale-95 transition-all">
+                        Save & Go to Playground
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}
