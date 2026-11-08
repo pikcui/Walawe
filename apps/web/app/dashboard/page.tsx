@@ -235,7 +235,7 @@ export default function Home() {
   const fadeIn = `transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`;
 
   return (
-    <div className="h-screen flex flex-col bg-black text-neutral-200 font-sans selection:bg-white selection:text-black overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-black text-neutral-200 font-sans selection:bg-white selection:text-black overflow-hidden">
       
       {toast && (
         <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-2xl z-[200] font-medium text-sm animate-slide-down flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-500 text-black' : 'bg-red-600 text-white'}`}>
@@ -269,7 +269,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* PLAYGROUND SETTINGS MODAL (Dipindah ke sini) */}
+      {/* PLAYGROUND SETTINGS MODAL */}
       {showPgSettings && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative animate-scale-in">
@@ -369,6 +369,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Add User Modal */}
       {showAddUser && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
@@ -390,6 +391,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Add Funds Modal */}
       {showAddFunds && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
@@ -427,6 +429,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Wallet Modal */}
       {showWalletModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
@@ -439,8 +442,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* TOPBAR (Locked) */}
-      <nav className="border-b border-neutral-900 bg-black/90 backdrop-blur-xl shrink-0 z-40">
+      {/* TOPBAR (Locked at top) */}
+      <nav className="shrink-0 border-b border-neutral-900 bg-black/90 backdrop-blur-xl z-40 w-full">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
@@ -486,14 +489,14 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* MAIN CONTENT (Scrollable area) */}
-      <main className="flex-grow relative overflow-hidden flex flex-col">
+      {/* MAIN CONTENT (Scrollable area ONLY) */}
+      <main className="flex-1 overflow-hidden relative flex flex-col">
         {activeTab === 'playground' ? (
           <div className="absolute inset-0 flex flex-col">
              <Playground config={{ walaweApiKey: pgWalaweKey, provider: pgProvider, providerKey: pgProviderKey, model: pgModel }} />
           </div>
         ) : (
-          <div className="flex-grow overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 space-y-8">
               {activeTab === 'overview' && (
                 <div className="space-y-8 animate-fade-in">
