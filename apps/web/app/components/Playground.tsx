@@ -10,13 +10,22 @@ const Icons = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
 export default function Playground() {
+  const [provider, setProvider] = useState<'openai' | 'anthropic'>('openai');
   const [providerKey, setProviderKey] = useState('');
+  const [model, setModel] = useState('gpt-4o-mini');
+  
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update default model when provider changes
+  useEffect(() => {
+    if (provider === 'openai') setModel('gpt-4o-mini');
+    if (provider === 'anthropic') setModel('claude-haiku-4-5');
+  }, [provider]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,12 +51,12 @@ export default function Playground() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // Untuk testing internal, kita bisa pakai JWT admin
+          'Authorization': `Bearer ${token}`,
           'X-Provider-Key': providerKey,
-          'X-Provider-Name': 'openai', // Hardcode openai untuk testing
+          'X-Provider-Name': provider,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: model,
           messages: [{ role: 'user', content: userMsg }],
           max_tokens: 100,
         }),
@@ -58,7 +67,6 @@ export default function Playground() {
         throw new Error(errorData || 'Failed to connect to agent');
       }
 
-      // Handle Streaming SSE
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       let assistantMsg = '';
@@ -87,7 +95,7 @@ export default function Playground() {
                   });
                 }
               } catch (e) {
-                // Abaikan parsing error pada chunk yang belum lengkap
+                // Abaikan chunk yang belum lengkap
               }
             }
           }
@@ -108,18 +116,47 @@ export default function Playground() {
       </div>
 
       <div className="bg-neutral-950 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-[65vh]">
-        {/* Header BYOK */}
-        <div className="p-4 border-b border-neutral-800 bg-black/50">
-          <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-2">
-            <Icons.Key /> OpenAI Provider Key (BYOK)
-          </label>
-          <input 
-            type="password" 
-            value={providerKey} 
-            onChange={e => setProviderKey(e.target.value)} 
-            placeholder="sk-proj-..." 
-            className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
-          />
+        
+        {/* Header Settings */}
+        <div className="p-4 border-b border-neutral-800 bg-black/50 space-y-4">
+          <div className="flex gap-2 bg-black p-1 rounded-lg border border-neutral-800 w-full md:w-fit">
+            <button 
+              onClick={() => setProvider('openai')} 
+              className={`flex-1 md:flex-none px-6 py-2 text-sm font-medium rounded-md transition-colors ${provider === 'openai' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
+            >
+              OpenAI
+            </button>
+            <button 
+              onClick={() => setProvider('anthropic')} 
+              className={`flex-1 md:flex-none px-6 py-2 text-sm font-medium rounded-md transition-colors ${provider === 'anthropic' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-white'}`}
+            >
+              Anthropic
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-2">
+                <Icons.Key /> {provider === 'openai' ? 'OpenAI' : 'Anthropic'} Provider Key (BYOK)
+              </label>
+              <input 
+                type="password" 
+                value={providerKey} 
+                onChange={e => setProviderKey(e.target.value)} 
+                placeholder={provider === 'openai' ? 'sk-proj-...' : 'sk-ant-...'} 
+                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Model</label>
+              <input 
+                type="text" 
+                value={model} 
+                onChange={e => setModel(e.target.value)} 
+                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-neutral-500" 
+              />
+            </div>
+          </div>
         </div>
 
         {/* Chat Area */}
