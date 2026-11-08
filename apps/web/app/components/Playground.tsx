@@ -23,11 +23,15 @@ export default function Playground() {
     return '';
   });
   
+ fix/playground-remember-model
   // INGAT MODEL YANG TERAKHIR DIPILIH
   const [model, setModel] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('pg_model') || 'meta-llama/llama-3.1-8b-instruct:free';
     return 'meta-llama/llama-3.1-8b-instruct:free';
   });
+
+  const [model, setModel] = useState('meta-llama/llama-3.1-8b-instruct:free');
+      main
   
   const [messages, setMessages] = useState<{ role: string; content: string; isError?: boolean }[]>([]);
   const [input, setInput] = useState('');
@@ -36,6 +40,7 @@ export default function Playground() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+   fix/playground-remember-model
   // SIMPAN PERUBAHAN KE LOCALSTORAGE
   useEffect(() => { localStorage.setItem('pg_walawe_key', walaweApiKey); }, [walaweApiKey]);
   useEffect(() => { localStorage.setItem('pg_provider_key', providerKey); }, [providerKey]);
@@ -47,6 +52,24 @@ export default function Playground() {
     if (newProvider === 'openai') setModel('gpt-4o-mini');
     if (newProvider === 'anthropic') setModel('claude-haiku-4-5');
     if (newProvider === 'openrouter') setModel('meta-llama/llama-3.1-8b-instruct:free');
+
+  useEffect(() => {
+    localStorage.setItem('pg_walawe_key', walaweApiKey);
+  }, [walaweApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('pg_provider_key', providerKey);
+  }, [providerKey]);
+
+  useEffect(() => {
+    if (provider === 'openai') setModel('gpt-4o-mini');
+    if (provider === 'anthropic') setModel('claude-haiku-4-5');
+    if (provider === 'openrouter') setModel('meta-llama/llama-3.1-8b-instruct:free');
+  }, [provider]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      main
   };
 
   const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
@@ -105,7 +128,10 @@ export default function Playground() {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
               try {
-                const parsed = JSON.parse(data);
+                const parsed = JSON.parse(data); fix/playground-remember-model
+
+                
+  main
                 if (parsed.error) {
                   hasError = true;
                   setMessages((prev) => {
@@ -115,6 +141,10 @@ export default function Playground() {
                     return newMsgs;
                   });
                 }
+ fix/playground-remember-model
+
+
+   main
                 if (parsed.text) {
                   assistantMsg += parsed.text;
                   setMessages((prev) => {
