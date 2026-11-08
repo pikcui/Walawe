@@ -217,13 +217,8 @@ export default function Home() {
   const fadeIn = `transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`;
 
   return (
-    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative overflow-x-hidden">
+    <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative flex flex-col overflow-hidden">
       
-      {/* WATERMARK */}
-      <div className="fixed bottom-6 right-6 text-[10px] text-neutral-600/50 pointer-events-none select-none font-mono tracking-widest uppercase z-50">
-        by Galang
-      </div>
-
       {toast && (
         <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-2xl z-[200] font-medium text-sm animate-slide-down flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-500 text-black' : 'bg-red-600 text-white'}`}>
           {toast.type === 'success' ? <Icons.Check /> : <Icons.X />}
@@ -259,8 +254,9 @@ export default function Home() {
       {showMobileMenu && (
         <div className="fixed inset-0 z-[120] flex justify-end">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}></div>
-          <div className="relative w-72 bg-neutral-950 h-full border-l border-neutral-900 flex flex-col p-6 shadow-2xl animate-slide-in-right">
-            <div className="flex justify-between items-start mb-6">
+          <div className="relative w-80 bg-neutral-950 h-full border-l border-neutral-900 flex flex-col p-6 shadow-2xl animate-slide-in-right">
+            
+            <div className="flex justify-between items-start mb-6 shrink-0">
               <div className="flex flex-col">
                 <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold mb-1">Signed in as</span>
                 <div className="flex items-center gap-2">
@@ -271,32 +267,47 @@ export default function Home() {
               <button onClick={() => setShowMobileMenu(false)} className="text-neutral-500 hover:text-white active:scale-90 transition-transform"><Icons.X /></button>
             </div>
 
-            <div className="flex flex-col space-y-1 border-t border-neutral-900 pt-6 mb-6">
-              <button onClick={() => { setActiveTab('overview'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Home /> Overview</button>
-              <button onClick={() => { setActiveTab('api-keys'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Key /> API Keys</button>
-              <button onClick={() => { setActiveTab('policy'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'policy' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Shield /> Policy Engine</button>
-              <button onClick={() => { setActiveTab('playground'); setShowMobileMenu(false); }} className={`flex items-center gap-3 text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeTab === 'playground' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}><Icons.Message /> Playground</button>
+            <div className="flex flex-col space-y-2 border-t border-neutral-900 pt-6 flex-grow overflow-y-auto">
+              <button onClick={() => { setActiveTab('overview'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'overview' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
+                <div className="flex items-center gap-3 text-sm font-medium"><Icons.Home /> Overview</div>
+                <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Manage agent wallet & pending actions</span>
+              </button>
+              
+              <button onClick={() => { setActiveTab('api-keys'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'api-keys' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
+                <div className="flex items-center gap-3 text-sm font-medium"><Icons.Key /> API Keys</div>
+                <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Generate & revoke agent access tokens</span>
+              </button>
+              
+              <button onClick={() => { setActiveTab('policy'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'policy' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
+                <div className="flex items-center gap-3 text-sm font-medium"><Icons.Shield /> Policy Engine</div>
+                <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Set strict spending limits & allowed models</span>
+              </button>
+              
+              <button onClick={() => { setActiveTab('playground'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'playground' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
+                <div className="flex items-center gap-3 text-sm font-medium"><Icons.Message /> Playground</div>
+                <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Test your AI agent with Bring Your Own Key</span>
+              </button>
             </div>
             
-            <div className="flex flex-col space-y-6 flex-grow border-t border-neutral-900 pt-6">
-              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white transition-colors">
+            <div className="flex flex-col space-y-4 shrink-0 border-t border-neutral-900 pt-4 mt-2">
+              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-xs text-neutral-400 hover:text-white transition-colors">
                 {lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
               </button>
               {isConnected && (
-                <div className="flex flex-col space-y-2">
-                  <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">Connected Wallet</span>
-                  <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 px-4 py-3 rounded-xl">
-                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-xs font-mono text-neutral-300">{address?.slice(0, 6)}...{address?.slice(-4)}</span></div>
-                    <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-xs text-red-400 font-medium hover:text-red-300 transition-colors">Putuskan</button>
-                  </div>
+                <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl">
+                  <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 6)}...{address?.slice(-4)}</span></div>
+                  <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-[10px] text-red-400 font-medium hover:text-red-300 transition-colors">Putuskan</button>
                 </div>
               )}
               {userRole === 'admin' && (
-                <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-sm font-medium text-neutral-300 hover:text-white transition-colors flex items-center gap-2"><Icons.User /> {t.addUser}</button>
+                <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-xs font-medium text-neutral-400 hover:text-white transition-colors flex items-center gap-2"><Icons.User /> Add User</button>
               )}
+              <button onClick={handleLogout} className="text-left text-xs text-red-400 font-medium hover:text-red-300 transition-colors">Logout</button>
             </div>
-            <div className="pt-6 border-t border-neutral-900 mt-auto">
-              <button onClick={handleLogout} className="text-left text-sm text-red-400 font-medium hover:text-red-300 transition-colors">{t.logout}</button>
+
+            {/* WATERMARK DI DALAM MENU HAMBURGER */}
+            <div className="absolute bottom-4 right-6 text-[9px] text-neutral-600/60 pointer-events-none select-none font-mono tracking-widest uppercase">
+              by Galang
             </div>
           </div>
         </div>
@@ -372,7 +383,7 @@ export default function Home() {
         </div>
       )}
 
-      <nav className="border-b border-neutral-900 bg-black/90 backdrop-blur-xl sticky top-0 z-40">
+      <nav className="border-b border-neutral-900 bg-black/90 backdrop-blur-xl shrink-0 z-40">
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
@@ -418,176 +429,184 @@ export default function Home() {
         </div>
       </nav>
 
-      <main className={`max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 ${activeTab === 'playground' ? 'h-[calc(100vh-64px)] overflow-hidden' : 'space-y-8'}`}>
-        
-        {activeTab === 'overview' && (
-          <div className="space-y-8 animate-fade-in">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-white tracking-tighter">{t.overview}</h1>
-                <p className="text-neutral-500 text-sm mt-1">{t.overviewDesc}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-6 border-y border-neutral-900">
-              <div className="flex flex-col justify-center">
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{t.totalBalance}</p>
-                {loading ? <div className="h-10 w-32 bg-neutral-900 animate-pulse rounded"></div> : <h3 className="text-4xl font-mono font-light text-white tracking-tighter">${formatCurrency(balance!)}</h3>}
-              </div>
-              <div className="md:col-span-2 flex flex-col justify-center md:border-l md:border-neutral-900 md:pl-8">
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{t.systemStatus}</p>
-                <div className="flex items-center gap-3">
-                  <span className="relative flex h-2 w-2"><span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative rounded-full h-2 w-2 bg-green-500"></span></span>
-                  <span className="text-lg font-medium text-white tracking-tight">{t.operational}</span>
-                </div>
-                <p className="text-xs text-neutral-600 mt-1">{t.policyActive}</p>
-              </div>
-            </div>
-
-            <div className="py-2">
-              <div className="mb-6"><h2 className="text-lg font-semibold text-white">{t.spendingTrend}</h2></div>
-              <div className="h-72 w-full">
-                {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                      <XAxis dataKey="date" stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} />
-                      <YAxis width={60} stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(4)}`} />
-                      <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #333', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} formatter={(value: number) => [`$${(value / 1000000).toFixed(5)}`, 'Spent']} />
-                      <Area type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : <div className="h-full flex items-center justify-center text-neutral-600 text-sm">{t.noSpending}</div>}
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-neutral-900">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-white tracking-tight">{t.pendingApprovals}</h2>
-                <p className="text-sm text-neutral-500 mt-1">{t.approvalDesc}</p>
-              </div>
-              {approvals.length === 0 ? (
-                <div className="p-8 text-center flex flex-col items-center gap-3">
-                  <p className="text-neutral-500 text-sm">{t.noApprovals}</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-neutral-900">
-                  {approvals.map((req) => (
-                    <div key={req.id} className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-neutral-500 font-mono">AGENT ID:</span>
-                          <span className="text-sm text-white font-mono">{req.agent_id.substring(0, 8)}...</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm mt-1">
-                          <span className="text-neutral-300">Model: <strong className="text-white">{req.model}</strong></span>
-                          <span className="text-neutral-300">Cost: <strong className="text-white font-mono">${(req.cost / 1000000).toFixed(4)}</strong></span>
-                        </div>
-                      </div>
-                      {userRole === 'admin' && (
-                        <div className="flex gap-2 w-full md:w-auto">
-                          <button onClick={() => resolveRequest(req.id, 'approve')} className="flex-1 md:flex-none bg-white text-black px-5 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 active:scale-95 transition-all">Approve</button>
-                          <button onClick={() => resolveRequest(req.id, 'reject')} className="flex-1 md:flex-none bg-neutral-900 text-white border border-neutral-800 px-5 py-2 rounded-lg text-sm font-medium hover:bg-neutral-800 active:scale-95 transition-all">Reject</button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'api-keys' && (
-          <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-white tracking-tighter">API Keys</h1>
-                <p className="text-neutral-500 text-sm mt-1">Manage keys for your AI agents to access the API.</p>
-              </div>
-              <button onClick={handleGenerateKey} className="bg-white text-black px-5 py-2.5 rounded-lg font-bold hover:bg-neutral-200 active:scale-95 transition-all flex items-center gap-2">
-                <Icons.Plus /> Generate New Key
-              </button>
-            </div>
-
-            <div className="border-t border-neutral-900 pt-4">
-              {apiKeys.length === 0 ? (
-                <div className="p-12 text-center text-neutral-500">No active API keys found.</div>
-              ) : (
-                <div className="divide-y divide-neutral-900">
-                  {apiKeys.map((key) => (
-                    <div key={key.id} className="py-4 flex justify-between items-center">
-                      <div>
-                        <div className="font-mono text-green-400 font-medium">{key.masked_key}</div>
-                        <div className="text-xs text-neutral-500 mt-1">Created: {new Date(key.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                      </div>
-                      <button onClick={() => handleRevokeKey(key.id)} className="text-xs font-medium text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1">
-                        <Icons.Trash /> Revoke
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'playground' && <Playground />}
-
-        {activeTab === 'policy' && (
-          <div className="space-y-8 animate-fade-in max-w-2xl mx-auto">
-            <div>
-              <h1 className="text-3xl font-bold text-white tracking-tighter">Policy Engine</h1>
-              <p className="text-neutral-500 text-sm mt-1">Set strict spending limits and allowed models for your agents.</p>
-            </div>
-
-            <form onSubmit={handleSavePolicy} className="space-y-6 pt-4 border-t border-neutral-900">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-2">
-                  <Icons.Shield /> Allowed Models (Comma separated)
-                </label>
-                <input 
-                  type="text" 
-                  value={policyModels} 
-                  onChange={e => setPolicyModels(e.target.value)} 
-                  required 
-                  placeholder="gpt-4o-mini, gemini-3.5-flash-lite"
-                  className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-neutral-600" 
-                />
-                <p className="text-xs text-neutral-600 mt-2">If empty, all requests will be denied.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* MAIN CONTENT */}
+      <main className={`flex-grow ${activeTab === 'playground' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <div className={`max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12 ${activeTab === 'playground' ? 'h-full flex flex-col' : ''}`}>
+          
+          {activeTab === 'overview' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Max per Transaction (USD)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
-                    <input type="number" step="0.01" min="0.01" value={maxTx} onChange={e => setMaxTx(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg pl-8 pr-4 py-3 text-white text-sm focus:outline-none focus:border-neutral-600" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Daily Limit (USD)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
-                    <input type="number" step="0.01" min="0.01" value={dailyLimit} onChange={e => setDailyLimit(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg pl-8 pr-4 py-3 text-white text-sm focus:outline-none focus:border-neutral-600" />
-                  </div>
+                  <h1 className="text-3xl font-bold text-white tracking-tighter">{t.overview}</h1>
+                  <p className="text-neutral-500 text-sm mt-1">{t.overviewDesc}</p>
                 </div>
               </div>
 
-              <div className="pt-6">
-                <button type="submit" disabled={savingPolicy} className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-neutral-200 active:scale-95 transition-all disabled:opacity-50">
-                  {savingPolicy ? "Saving..." : "Save Policy"}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-6 border-y border-neutral-900">
+                <div className="flex flex-col justify-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{t.totalBalance}</p>
+                  {loading ? <div className="h-10 w-32 bg-neutral-900 animate-pulse rounded"></div> : <h3 className="text-4xl font-mono font-light text-white tracking-tighter">${formatCurrency(balance!)}</h3>}
+                </div>
+                <div className="md:col-span-2 flex flex-col justify-center md:border-l md:border-neutral-900 md:pl-8">
+                  <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{t.systemStatus}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative rounded-full h-2 w-2 bg-green-500"></span></span>
+                    <span className="text-lg font-medium text-white tracking-tight">{t.operational}</span>
+                  </div>
+                  <p className="text-xs text-neutral-600 mt-1">{t.policyActive}</p>
+                </div>
+              </div>
+
+              <div className="py-2">
+                <div className="mb-6"><h2 className="text-lg font-semibold text-white">{t.spendingTrend}</h2></div>
+                <div className="h-72 w-full">
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4}/>
+                            <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                        <XAxis dataKey="date" stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} />
+                        <YAxis width={60} stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(4)}`} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #333', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} formatter={(value: number) => [`$${(value / 1000000).toFixed(5)}`, 'Spent']} />
+                        <Area type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : <div className="h-full flex items-center justify-center text-neutral-600 text-sm">{t.noSpending}</div>}
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-neutral-900">
+                <div className="mb-4">
+                  <h2 className="text-lg font-semibold text-white tracking-tight">{t.pendingApprovals}</h2>
+                  <p className="text-sm text-neutral-500 mt-1">{t.approvalDesc}</p>
+                </div>
+                {approvals.length === 0 ? (
+                  <div className="p-8 text-center flex flex-col items-center gap-3">
+                    <p className="text-neutral-500 text-sm">{t.noApprovals}</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-neutral-900">
+                    {approvals.map((req) => (
+                      <div key={req.id} className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-neutral-500 font-mono">AGENT ID:</span>
+                            <span className="text-sm text-white font-mono">{req.agent_id.substring(0, 8)}...</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm mt-1">
+                            <span className="text-neutral-300">Model: <strong className="text-white">{req.model}</strong></span>
+                            <span className="text-neutral-300">Cost: <strong className="text-white font-mono">${(req.cost / 1000000).toFixed(4)}</strong></span>
+                          </div>
+                        </div>
+                        {userRole === 'admin' && (
+                          <div className="flex gap-2 w-full md:w-auto">
+                            <button onClick={() => resolveRequest(req.id, 'approve')} className="flex-1 md:flex-none bg-white text-black px-5 py-2 rounded-lg text-sm font-medium hover:bg-neutral-200 active:scale-95 transition-all">Approve</button>
+                            <button onClick={() => resolveRequest(req.id, 'reject')} className="flex-1 md:flex-none bg-neutral-900 text-white border border-neutral-800 px-5 py-2 rounded-lg text-sm font-medium hover:bg-neutral-800 active:scale-95 transition-all">Reject</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'api-keys' && (
+            <div className="space-y-8 animate-fade-in max-w-4xl mx-auto w-full">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold text-white tracking-tighter">API Keys</h1>
+                  <p className="text-neutral-500 text-sm mt-1">Manage keys for your AI agents to access the API.</p>
+                </div>
+                <button onClick={handleGenerateKey} className="bg-white text-black px-5 py-2.5 rounded-lg font-bold hover:bg-neutral-200 active:scale-95 transition-all flex items-center gap-2">
+                  <Icons.Plus /> Generate New Key
                 </button>
               </div>
-            </form>
-          </div>
-        )}
+
+              <div className="border-t border-neutral-900 pt-4">
+                {apiKeys.length === 0 ? (
+                  <div className="p-12 text-center text-neutral-500">No active API keys found.</div>
+                ) : (
+                  <div className="divide-y divide-neutral-900">
+                    {apiKeys.map((key) => (
+                      <div key={key.id} className="py-4 flex justify-between items-center">
+                        <div>
+                          <div className="font-mono text-green-400 font-medium">{key.masked_key}</div>
+                          <div className="text-xs text-neutral-500 mt-1">Created: {new Date(key.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <button onClick={() => handleRevokeKey(key.id)} className="text-xs font-medium text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1">
+                          <Icons.Trash /> Revoke
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'playground' && (
+            <div className="h-full w-full animate-fade-in">
+              <Playground />
+            </div>
+          )}
+
+          {activeTab === 'policy' && (
+            <div className="space-y-8 animate-fade-in max-w-2xl mx-auto w-full">
+              <div>
+                <h1 className="text-3xl font-bold text-white tracking-tighter">Policy Engine</h1>
+                <p className="text-neutral-500 text-sm mt-1">Set strict spending limits and allowed models for your agents.</p>
+              </div>
+
+              <form onSubmit={handleSavePolicy} className="space-y-6 pt-4 border-t border-neutral-900">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2 flex items-center gap-2">
+                    <Icons.Shield /> Allowed Models (Comma separated)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={policyModels} 
+                    onChange={e => setPolicyModels(e.target.value)} 
+                    required 
+                    placeholder="gpt-4o-mini, gemini-3.5-flash-lite"
+                    className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-neutral-600" 
+                  />
+                  <p className="text-xs text-neutral-600 mt-2">If empty, all requests will be denied.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Max per Transaction (USD)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
+                      <input type="number" step="0.01" min="0.01" value={maxTx} onChange={e => setMaxTx(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg pl-8 pr-4 py-3 text-white text-sm focus:outline-none focus:border-neutral-600" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Daily Limit (USD)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">$</span>
+                      <input type="number" step="0.01" min="0.01" value={dailyLimit} onChange={e => setDailyLimit(e.target.value)} required className="w-full bg-black border border-neutral-800 rounded-lg pl-8 pr-4 py-3 text-white text-sm focus:outline-none focus:border-neutral-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <button type="submit" disabled={savingPolicy} className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-neutral-200 active:scale-95 transition-all disabled:opacity-50">
+                    {savingPolicy ? "Saving..." : "Save Policy"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+        </div>
       </main>
     </div>
   );
