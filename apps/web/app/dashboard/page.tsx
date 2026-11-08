@@ -33,6 +33,10 @@ export default function Home() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
+  // Custom UI States for Popups
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; desc: string; onConfirm: () => void } | null>(null);
+
   const [showAddUser, setShowAddUser] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -48,16 +52,30 @@ export default function Home() {
   const { connect, connectors, isPending: isConnecting, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
-  
-  // Destructure 'reset' from useWriteContract to fix the stuck state
   const { data: hash, writeContract, isPending, reset } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   const router = useRouter();
 
+  // Helper for Formatting Currency
+  const formatCurrency = (microUsd: number) => {
+    return (microUsd / 1000000).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  };
+
   useEffect(() => {
     if (isConnected) setShowWalletModal(false);
   }, [isConnected]);
+
+  // Toast Auto-hide
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const fetchData = async () => {
     const token = localStorage.getItem('walawe_token');
@@ -94,10 +112,10 @@ export default function Home() {
             body: JSON.stringify({ tx_hash: hash })
           });
           if (res.ok) {
-            alert(t.depositSuccess);
+            setToast({ msg: t.depositSuccess, type: 'success' });
             setShowAddFunds(false);
             setDepositAmount('');
-            reset(); // Reset state transaksi agar bisa deposit lagi
+            reset(); 
             fetchData();
           }
         } catch (err) { console.error(err); }
@@ -106,7 +124,6 @@ export default function Home() {
     }
   }, [isConfirmed, hash]);
 
-  // Reset transaction state when modal is closed
   useEffect(() => {
     if (!showAddFunds) reset();
   }, [showAddFunds]);
@@ -118,7 +135,7 @@ export default function Home() {
       const res = await fetch(`${API_URL}/admin/approvals/resolve`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ id, action })
       });
-      if (res.status === 403) { alert("Forbidden: You do not have permission to approve requests."); fetchData(); return; }
+      if (res.status === 403) { setToast({ msg: "Forbidden: You do not have permission.", type: 'error' }); fetchData(); return; }
       fetchData();
     } catch (err) { console.error(err); fetchData(); }
   };
@@ -130,7 +147,7 @@ export default function Home() {
       const res = await fetch(`${API_URL}/admin/users`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ email: newEmail, password: newPassword, role: newRole })
       });
-      if (res.ok) { alert("User created!"); setShowAddUser(false); setNewEmail(''); setNewPassword(''); } else { alert("Failed."); }
+      if (res.ok) { setToast({ msg: "User created successfully!", type: 'success' }); setShowAddUser(false); setNewEmail(''); setNewPassword(''); } else { setToast({ msg: "Failed to create user.", type: 'error' }); }
     } catch (err) { console.error(err); }
   };
 
@@ -144,7 +161,7 @@ export default function Home() {
       const res = await fetch(`${API_URL}/admin/deposit`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ amount_micro_usd: microUsd })
       });
-      if (res.ok) { setShowAddFunds(false); setDepositAmount(''); fetchData(); } 
+      if (res.ok) { setShowAddFunds(false); setDepositAmount(''); fetchData(); setToast({ msg: "Deposit successful", type: 'success' }); } 
     } catch (err) { console.error(err); }
   };
 
@@ -161,7 +178,11 @@ export default function Home() {
   };
 
   const handleDisconnect = () => {
-    if (confirm("Apakah Anda yakin ingin memutus dompet ini? / Are you sure you want to disconnect?")) disconnect();
+    setConfirmModal({
+      title: "Putuskan Dompet?",
+      desc: "Anda harus menghubungkan ulang dompet jika ingin melakukan deposit Web3 lagi.",
+      onConfirm: () => disconnect()
+    });
   };
 
   const handleLogout = () => { localStorage.clear(); router.push('/login'); };
@@ -171,54 +192,76 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-neutral-200 font-sans selection:bg-white selection:text-black relative">
       
-      {/* SLIDE-IN MOBILE MENU (KIRI) */}
-      {showMobileMenu && (
-        <div className="fixed inset-0 z-[120] flex">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}></div>
-          <div className="relative w-64 bg-neutral-950 h-full border-r border-neutral-800 flex flex-col p-6 shadow-2xl animate-slide-in">
-            <div className="flex justify-between items-center mb-8">
-              <span className="font-bold text-white">Menu</span>
-              <button onClick={() => setShowMobileMenu(false)} className="text-neutral-500 hover:text-white"><Icons.X /></button>
-            </div>
-            
-            <div className="flex flex-col space-y-6">
-              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white">
-                {lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
-              </button>
-              
-              {isConnected && (
-                <div className="flex flex-col space-y-2">
-                  <span className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Wallet</span>
-                  <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 px-3 py-2 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      <span className="text-xs font-mono text-neutral-300">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-                    </div>
-                    <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-xs text-red-400 hover:text-red-300">Putuskan</button>
-                  </div>
-                </div>
-              )}
+      {/* TOAST NOTIFICATION */}
+      {toast && (
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl shadow-2xl z-[200] font-medium text-sm animate-slide-down flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-500 text-black' : 'bg-red-600 text-white'}`}>
+          {toast.type === 'success' ? <Icons.Check /> : <Icons.X />}
+          {toast.msg}
+        </div>
+      )}
 
-              {userRole === 'admin' && (
-                <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white">
-                  {t.addUser}
-                </button>
-              )}
-              
-              <div className="pt-6 border-t border-neutral-800 mt-auto">
-                <button onClick={handleLogout} className="text-left text-sm text-red-400 font-medium hover:text-red-300">
-                  {t.logout}
-                </button>
-              </div>
+      {/* CUSTOM CONFIRM MODAL */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-6 animate-scale-in">
+            <h3 className="text-xl font-bold text-white">{confirmModal.title}</h3>
+            <p className="text-sm text-neutral-400">{confirmModal.desc}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmModal(null)} className="flex-1 bg-neutral-800 text-white py-2.5 rounded-lg font-medium active:scale-95 transition-all">Batal</button>
+              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-medium active:scale-95 transition-all">Ya, Putuskan</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODALS */}
+      {/* SLIDE-IN MOBILE MENU (KANAN KE KIRI) */}
+      {showMobileMenu && (
+        <div className="fixed inset-0 z-[120] flex justify-end">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}></div>
+          <div className="relative w-72 bg-neutral-950 h-full border-l border-neutral-800 flex flex-col p-6 shadow-2xl animate-slide-in-right">
+            <div className="flex justify-between items-center mb-8">
+              <span className="font-bold text-white text-lg">Menu</span>
+              <button onClick={() => setShowMobileMenu(false)} className="text-neutral-500 hover:text-white active:scale-90 transition-transform"><Icons.X /></button>
+            </div>
+            
+            <div className="flex flex-col space-y-6 flex-grow">
+              <button onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setShowMobileMenu(false); }} className="text-left text-sm text-neutral-300 hover:text-white transition-colors">
+                {lang === 'en' ? 'Ganti ke Bahasa Indonesia' : 'Switch to English'}
+              </button>
+              
+              {isConnected && (
+                <div className="flex flex-col space-y-2">
+                  <span className="text-xs text-neutral-500 uppercase tracking-wider font-bold">Connected Wallet</span>
+                  <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 px-4 py-3 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                      <span className="text-xs font-mono text-neutral-300">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                    </div>
+                    <button onClick={() => { handleDisconnect(); setShowMobileMenu(false); }} className="text-xs text-red-400 font-medium hover:text-red-300 transition-colors">Putuskan</button>
+                  </div>
+                </div>
+              )}
+
+              {userRole === 'admin' && (
+                <button onClick={() => { setShowAddUser(true); setShowMobileMenu(false); }} className="text-left text-sm font-medium text-neutral-300 hover:text-white transition-colors">
+                  {t.addUser}
+                </button>
+              )}
+            </div>
+            
+            <div className="pt-6 border-t border-neutral-800 mt-auto">
+              <button onClick={handleLogout} className="text-left text-sm text-red-400 font-medium hover:text-red-300 transition-colors">
+                {t.logout}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALS (ADD USER & ADD FUNDS) */}
       {showAddUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
             <button onClick={() => setShowAddUser(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-xl font-bold text-white mb-6">Create New User</h2>
             <form onSubmit={handleCreateUser} className="space-y-4">
@@ -238,7 +281,7 @@ export default function Home() {
 
       {showAddFunds && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
             <button onClick={() => setShowAddFunds(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-xl font-bold text-white mb-2">{t.topUp}</h2>
             <div className="flex gap-2 mb-6 bg-black p-1 rounded-lg border border-neutral-800">
@@ -272,7 +315,6 @@ export default function Home() {
                 <button type="submit" disabled={!isConnected || isPending || isConfirming} className="w-full bg-white text-black font-medium py-2.5 rounded-lg hover:bg-neutral-200 active:scale-95 transition-all mt-6 disabled:opacity-50">
                   {isPending ? "Check Wallet..." : isConfirming ? "Confirming..." : isConfirmed ? t.success : t.depositWeb3}
                 </button>
-                {isConfirmed && <p className="text-green-500 text-xs text-center mt-2">Hash: {hash?.slice(0,10)}...</p>}
               </form>
             )}
           </div>
@@ -281,7 +323,7 @@ export default function Home() {
 
       {showWalletModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+          <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in">
             <button onClick={() => setShowWalletModal(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-xl font-bold text-white mb-2">{t.connectWallet}</h2>
             {connectError && <div className="bg-red-950 border border-red-900 text-red-400 text-xs p-3 rounded mb-4 break-words">Error: {connectError.message}</div>}
@@ -323,7 +365,7 @@ export default function Home() {
                  <span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 4)}...{address?.slice(-3)}</span>
                </div>
             )}
-            <button onClick={() => setShowMobileMenu(true)} className="text-white p-1">
+            <button onClick={() => setShowMobileMenu(true)} className="text-white p-1.5 active:scale-75 transition-transform duration-200">
               <Icons.Menu />
             </button>
           </div>
@@ -341,7 +383,7 @@ export default function Home() {
           <div className="bg-neutral-950 rounded-2xl p-6 border border-neutral-800 hover:border-neutral-600 transition-colors duration-300 relative overflow-hidden flex flex-col justify-between">
             <div>
               <p className="text-sm font-medium text-neutral-400 mb-2">{t.totalBalance}</p>
-              {loading ? <div className="h-10 w-32 bg-neutral-800 animate-pulse rounded"></div> : <h3 className="text-4xl font-mono font-light text-white tracking-tighter">${(balance! / 1000000).toFixed(4)}</h3>}
+              {loading ? <div className="h-10 w-32 bg-neutral-800 animate-pulse rounded"></div> : <h3 className="text-4xl font-mono font-light text-white tracking-tighter">${formatCurrency(balance!)}</h3>}
             </div>
             {userRole === 'admin' && (
               <button onClick={() => setShowAddFunds(true)} className="mt-4 w-full flex items-center justify-center gap-2 bg-white text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-neutral-200 active:scale-95 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)]">
