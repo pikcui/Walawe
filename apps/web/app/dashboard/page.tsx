@@ -28,6 +28,13 @@ const ERC20_ABI = [
   { "constant": false, "inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function" }
 ];
 
+  const formatCurrency = (microUsd: number) => {
+    const val = microUsd / 1000000;
+    if (val === 0) return '0.00';
+    // Jika saldo >= $1, pakai 2 desimal. Jika < $1, pakai 4 desimal.
+    const decimals = val >= 1 ? 2 : 4;
+    return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
+  };
 const parseJwt = (token: string) => {
   try { return JSON.parse(atob(token.split('.')[1])); } catch (e) { return null; }
 };
@@ -77,9 +84,6 @@ export default function Home() {
 
   const router = useRouter();
 
-  const formatCurrency = (microUsd: number) => {
-    return (microUsd / 1000000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  };
 
   useEffect(() => {
     if (isConnected) setShowWalletModal(false);
