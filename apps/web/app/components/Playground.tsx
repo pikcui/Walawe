@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 
 const Icons = {
   Send: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>),
-  Settings: () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
+  Settings: () => (<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
   Eye: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>),
   EyeOff: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>),
   X: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>)
@@ -124,9 +124,22 @@ export default function Playground() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] w-full relative">
+    <div className="flex flex-col h-full w-full relative overflow-hidden bg-black">
+      
+      {/* Header Settings */}
+      <div className="flex justify-between items-center py-4 px-4 md:px-6 border-b border-neutral-900 bg-black/80 backdrop-blur-md shrink-0">
+        <div>
+          <h1 className="text-xl font-bold text-white tracking-tight">Agent Playground</h1>
+          <p className="text-neutral-500 text-[11px] md:text-xs mt-0.5">Test your BYOK agent with live ledger tracking.</p>
+        </div>
+        <button onClick={() => setShowSettings(true)} className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors border border-neutral-800">
+          <Icons.Settings /> <span className="hidden md:inline">Settings</span>
+        </button>
+      </div>
+
+      {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative animate-scale-in">
             <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white"><Icons.X /></button>
             <h2 className="text-lg font-bold text-white mb-6">Playground Configuration</h2>
@@ -160,7 +173,8 @@ export default function Playground() {
         </div>
       )}
 
-      <div className="flex-grow overflow-y-auto pr-2 space-y-6 scrollbar-thin">
+      {/* Chat Area (Only this scrolls) */}
+      <div className="flex-grow overflow-y-auto px-4 md:px-6 py-6 space-y-6 scrollbar-thin scrollbar-thumb-neutral-800">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-neutral-600 space-y-4">
             <div className="w-16 h-16 rounded-full bg-neutral-900/50 flex items-center justify-center border border-neutral-800/50"><Icons.Send /></div>
@@ -182,15 +196,16 @@ export default function Playground() {
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      <div className="pt-4">
+      {/* Input Area */}
+      <div className="p-4 md:px-6 bg-black shrink-0">
         <form onSubmit={handleSend} className="relative flex items-center bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg focus-within:border-neutral-600 transition-colors">
           <input type="text" value={input} onChange={e => setInput(e.target.value)} placeholder="Message Agent..." disabled={isLoading} className="w-full bg-transparent px-5 py-4 text-white text-[15px] focus:outline-none placeholder:text-neutral-600" />
           <button type="submit" disabled={isLoading || !input.trim()} className="absolute right-2 p-2 bg-white text-black rounded-xl hover:bg-neutral-200 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"><Icons.Send /></button>
         </form>
-        {error && <p className="text-red-500 text-xs text-center mt-3">{error}</p>}
+        {error && <p className="text-red-500 text-[11px] text-center mt-2">{error}</p>}
       </div>
     </div>
   );
