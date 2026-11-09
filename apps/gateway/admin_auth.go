@@ -31,7 +31,7 @@ secret := getEnv("JWT_SECRET", "")
 appEnv := os.Getenv("APP_ENV")
 
 // HARDENING: Crash jika di production tapi secret tidak diset atau masih default
-if appEnv == "production" && (secret == "" || secret == "super_secret_dev_key") {
+if strings.ToLower(appEnv) == "production" && (secret == "" || secret == "super_secret_dev_key") {
 log.Fatal("FATAL: JWT_SECRET must be set to a strong value in production. Do not use default.")
 }
 

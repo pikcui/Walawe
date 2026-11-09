@@ -54,7 +54,7 @@ redisURL = strings.ReplaceAll(redisURL, "\"", "")
 redisURL = strings.TrimSpace(redisURL)
 
 if redisURL == "" {
-if appEnv == "production" {
+if strings.ToLower(appEnv) == "production" {
 log.Fatal("FATAL: REDIS_URL is required in production environment.")
 }
 redisURL = "redis://localhost:6379"
