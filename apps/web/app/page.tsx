@@ -117,7 +117,7 @@ export default function LandingPage() {
 
           <div className="bg-neutral-950/80 backdrop-blur-xl border border-neutral-800 p-8 rounded-2xl text-left hover:border-neutral-600 transition-colors">
             <div className="w-12 h-12 rounded-xl bg-neutral-900 flex items-center justify-center mb-6 border border-neutral-800 text-white">
-              <Icons.Message />
+              <Icons.Activity />
             </div>
             <h3 className="font-semibold text-lg text-white mb-2">Agent Playground</h3>
             <p className="text-sm text-neutral-400 leading-relaxed">Test your agent's live responses directly from the dashboard using your BYOK setup.</p>
