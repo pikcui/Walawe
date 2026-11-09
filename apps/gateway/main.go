@@ -48,20 +48,30 @@ func main() {
 	dbStore = ledger.NewPgStore(pool)
 	dbPool = pool
 
+	appEnv := os.Getenv("APP_ENV")
 	redisURL := os.Getenv("REDIS_URL")
 	redisURL = strings.ReplaceAll(redisURL, "\"", "")
 	redisURL = strings.TrimSpace(redisURL)
 
-	var rdb *redis.Client
 	if redisURL == "" {
-		rdb = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
-	} else {
-		opt, err := redis.ParseURL(redisURL)
-		if err != nil {
-			log.Fatalf("Invalid REDIS_URL: %v", err)
+		if strings.ToLower(appEnv) == "production" {
+			log.Fatal("FATAL: REDIS_URL is required in production environment.")
 		}
-		rdb = redis.NewClient(opt)
+		redisURL = "redis://localhost:6379"
 	}
+
+	// HARDENING: Auto-fix untuk Upstash. Jika bukan localhost tapi pakai redis://, ubah ke rediss://
+	if strings.HasPrefix(redisURL, "redis://") && !strings.Contains(redisURL, "localhost") {
+		log.Println("WARNING: Auto-switching redis:// to rediss:// for TLS compatibility (e.g., Upstash)")
+		redisURL = strings.Replace(redisURL, "redis://", "rediss://", 1)
+	}
+
+	opt, err := redis.ParseURL(redisURL)
+	if err != nil {
+		log.Fatalf("FATAL: Invalid REDIS_URL format: %v", err)
+	}
+
+	rdb := redis.NewClient(opt)
 	redisClient = rdb
 
 	if err := rdb.Ping(context.Background()).Err(); err != nil {

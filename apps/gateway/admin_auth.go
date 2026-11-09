@@ -24,7 +24,22 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte(getEnv("JWT_SECRET", "super_secret_dev_key"))
+var jwtKey []byte
+
+func init() {
+	secret := getEnv("JWT_SECRET", "")
+	appEnv := os.Getenv("APP_ENV")
+
+	// HARDENING: Crash jika di production tapi secret tidak diset atau masih default
+	if strings.ToLower(appEnv) == "production" && (secret == "" || secret == "super_secret_dev_key") {
+		log.Fatal("FATAL: JWT_SECRET must be set to a strong value in production. Do not use default.")
+	}
+
+	if secret == "" {
+		secret = "super_secret_dev_key" // Fallback HANYA untuk local dev (Termux)
+	}
+	jwtKey = []byte(secret)
+}
 
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
