@@ -316,7 +316,7 @@ export default function Home() {
               </button>
 
               <button onClick={() => { setActiveTab('session-keys'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'session-keys' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
-                <div className="flex items-center gap-3 text-sm font-medium"><Icons.Shield /> Session Keys</div>
+                <div className="flex items-center gap-3 text-sm font-medium"><Icons.Key /> Session Keys</div>
                 <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Generate Web3 keys for agent settlements</span>
               </button>
               
