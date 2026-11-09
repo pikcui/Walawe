@@ -31,9 +31,12 @@ export default function GenerateSessionKey() {
   const [status, setStatus] = useState("");
 
   async function encryptWithRSA(plainText: string, publicKeyPem: string): Promise<string> {
-    const pemHeader = "-----BEGIN PUBLIC KEY-----";
-    const pemFooter = "-----END PUBLIC KEY-----";
-    const pemContents = publicKeyPem.substring(pemHeader.length, publicKeyPem.length - pemFooter.length).replace(/\s/g, '');
+    // Perbaikan: Hapus header, footer, dan SEMUA spasi/enter menggunakan Regex
+    const pemContents = publicKeyPem
+      .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+      .replace(/-----END PUBLIC KEY-----/g, '')
+      .replace(/\s/g, ''); 
+
     const binaryDerString = window.atob(pemContents);
     const binaryDer = new Uint8Array(binaryDerString.length);
     for (let i = 0; i < binaryDerString.length; i++) {
@@ -64,7 +67,6 @@ export default function GenerateSessionKey() {
   }
 
   const handleGenerate = async () => {
-    // Ganti pop-up jelek dengan status inline yang rapi
     if (!isConnected || !ownerAddress) {
       setStatus("⚠️ Please connect your wallet first using the wallet icon in the top bar.");
       return;
