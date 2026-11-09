@@ -429,7 +429,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded bg-white text-black flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M2 4 L9 18 L12 12 L15 18 L22 4 L18 4 L14 13 L12 9 L10 13 L6 4 Z" /></svg></div>
+              <div className="w-7 h-7 rounded bg-white text-black flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2L2 7l7 12 3-6 3 6 7-12-10-5zm0 3.5l5.5 2.5-3.5 6-2-4-2 4-3.5-6 5.5-2.5z"/></svg></div>
               <span className="text-lg font-semibold tracking-tight text-white hidden sm:block">Walawe</span>
             </div>
             <div className="hidden md:flex items-center gap-6">
