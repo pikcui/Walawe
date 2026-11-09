@@ -29,9 +29,9 @@ export default function GenerateSessionKey() {
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [status, setStatus] = useState("");
+  const [agentAddress, setAgentAddress] = useState<string | null>(null); // State baru untuk alamat agen
 
   async function encryptWithRSA(plainText: string, publicKeyPem: string): Promise<string> {
-    // Perbaikan: Hapus header, footer, dan SEMUA spasi/enter menggunakan Regex
     const pemContents = publicKeyPem
       .replace(/-----BEGIN PUBLIC KEY-----/g, '')
       .replace(/-----END PUBLIC KEY-----/g, '')
@@ -80,6 +80,7 @@ export default function GenerateSessionKey() {
 
     setIsGenerating(true);
     setStatus("Generating Agent Key...");
+    setAgentAddress(null);
 
     try {
       const agentPrivateKey = generatePrivateKey();
@@ -126,6 +127,7 @@ export default function GenerateSessionKey() {
 
       if (!saveRes.ok) throw new Error("Failed to save key to backend");
 
+      setAgentAddress(agentAccount.address);
       setStatus("✅ Session Key successfully generated and secured!");
     } catch (err: any) {
       console.error(err);
@@ -157,6 +159,14 @@ export default function GenerateSessionKey() {
             : "bg-black border-neutral-800 text-neutral-300"
         }`}>
           {status}
+        </div>
+      )}
+
+      {/* Tampilkan Alamat Agen untuk dites */}
+      {agentAddress && (
+        <div className="mt-4 p-3 bg-neutral-900 border border-neutral-700 rounded-lg">
+          <p className="text-xs text-neutral-500 mb-1">Agent Public Address (Untuk Test):</p>
+          <p className="text-sm font-mono text-green-400 break-all select-all">{agentAddress}</p>
         </div>
       )}
     </div>
