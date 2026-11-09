@@ -19,15 +19,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// cleanPEM mendeteksi apakah ENV berisi Base64 atau teks biasa
 func cleanPEM(pemStr string) string {
-	// 1. Coba decode sebagai Base64 (Cara baru yang paling aman)
 	decoded, err := base64.StdEncoding.DecodeString(pemStr)
 	if err == nil && strings.Contains(string(decoded), "-----BEGIN PRIVATE KEY-----") {
 		return string(decoded)
 	}
-
-	// 2. Fallback ke cara lama (jika masih pakai format \n)
 	pemStr = strings.TrimSpace(pemStr)
 	pemStr = strings.Trim(pemStr, "\"")
 	pemStr = strings.ReplaceAll(pemStr, "\\n", "\n")
@@ -39,48 +35,34 @@ func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	if privKeyPEM == "" {
-		log.Println("ERROR: RSA_PRIVATE_KEY_PEM is not set")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	if block == nil {
-		log.Printf("Failed to parse PEM block. Isi ENV: %s", privKeyPEM)
 		http.Error(w, "Failed to parse PEM block", http.StatusInternalServerError)
 		return
 	}
-
 	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
 		http.Error(w, "Failed to parse Private Key", http.StatusInternalServerError)
 		return
 	}
-
 	rsaPrivKey, ok := privKey.(*rsa.PrivateKey)
 	if !ok {
 		http.Error(w, "Key is not RSA", http.StatusInternalServerError)
 		return
 	}
-
 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&rsaPrivKey.PublicKey)
 	if err != nil {
 		http.Error(w, "Failed to marshal Public Key", http.StatusInternalServerError)
 		return
 	}
-
-	pubKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: pubKeyBytes,
-	})
-
+	pubKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubKeyBytes})
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"publicKey": string(pubKeyPEM),
-	})
+	json.NewEncoder(w).Encode(map[string]string{"publicKey": string(pubKeyPEM)})
 }
 
 func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
@@ -88,13 +70,11 @@ func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	agentIDStr, ok := r.Context().Value(agentIDKey).(string)
 	if !ok || agentIDStr == "" {
-		http.Error(w, "Unauthorized: Missing agent context", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	var req struct {
 		EncryptedPrivateKey string `json:"encryptedPrivateKey"`
 		AgentPublicAddress  string `json:"agentPublicAddress"`
@@ -105,30 +85,18 @@ func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-
 	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	block, _ := pem.Decode([]byte(privKeyPEM))
-	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		log.Printf("Failed to parse private key: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 	rsaPrivKey := privKey.(*rsa.PrivateKey)
+	encryptedBytes, _ := base64.StdEncoding.DecodeString(req.EncryptedPrivateKey)
 
-	encryptedBytes, err := base64.StdEncoding.DecodeString(req.EncryptedPrivateKey)
-	if err != nil {
-		http.Error(w, "Invalid base64 encoding", http.StatusBadRequest)
-		return
-	}
-
+	// PERBAIKAN 1: Gunakan := untuk mendeklarasikan decryptedBytes dan err
 	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
 	if err != nil {
-		log.Printf("RSA Decryption failed: %v", err)
-		http.Error(w, "Failed to decrypt session key", http.StatusInternalServerError)
+		http.Error(w, "Failed to decrypt", http.StatusInternalServerError)
 		return
 	}
-
 	if len(decryptedBytes) == 0 {
 		http.Error(w, "Decrypted key is empty", http.StatusBadRequest)
 		return
@@ -146,28 +114,18 @@ created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 `
 	_, _ = dbPool.Exec(context.Background(), createTableQuery)
-
 	query := `
-INSERT INTO agent_session_keys 
-(agent_id, agent_public_address, encrypted_private_key, tx_hash, valid_until, created_at) 
+INSERT INTO agent_session_keys (agent_id, agent_public_address, encrypted_private_key, tx_hash, valid_until, created_at) 
 VALUES ($1::uuid, $2, $3, $4, $5, now())
-ON CONFLICT (agent_public_address) DO UPDATE 
-SET encrypted_private_key = EXCLUDED.encrypted_private_key, 
-    tx_hash = EXCLUDED.tx_hash, 
-    valid_until = EXCLUDED.valid_until
+ON CONFLICT (agent_public_address) DO UPDATE SET encrypted_private_key = EXCLUDED.encrypted_private_key;
 `
 	_, err = dbPool.Exec(context.Background(), query, agentIDStr, req.AgentPublicAddress, req.EncryptedPrivateKey, req.TxHash, req.ValidUntil)
 	if err != nil {
-		log.Printf("Failed to insert session key: %v", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
+		http.Error(w, "DB error", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Session key successfully generated and encrypted securely",
-		"status":  "success",
-	})
+	json.NewEncoder(w).Encode(map[string]string{"message": "success", "status": "success"})
 }
 
 func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
@@ -197,15 +155,16 @@ func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 	rsaPrivKey := privKey.(*rsa.PrivateKey)
-
 	encryptedBytes, _ := base64.StdEncoding.DecodeString(encryptedKey)
+
+	// PERBAIKAN 2: Di sini decryptedBytes BENAR-BENAR dipakai untuk Pimlico
 	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
 	if err != nil {
 		http.Error(w, "Failed to decrypt key", http.StatusInternalServerError)
 		return
 	}
 
-	smartAccount := common.HexToAddress(req.AgentPublicAddress)
+	smartAccount := common.HexToAddress("0xb3e2D0A16bBC1d7b8c3543aEB458D22ddD961F68")
 	entryPoint := common.HexToAddress("0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789")
 	dest := common.HexToAddress(req.Destination)
 	amount := new(big.Int)
