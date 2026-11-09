@@ -19,11 +19,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// cleanPEM membersihkan string dari tanda kutip dan mengubah literal \n menjadi enter asli
+// cleanPEM mendeteksi apakah ENV berisi Base64 atau teks biasa
 func cleanPEM(pemStr string) string {
+	// 1. Coba decode sebagai Base64 (Cara baru yang paling aman)
+	decoded, err := base64.StdEncoding.DecodeString(pemStr)
+	if err == nil && strings.Contains(string(decoded), "-----BEGIN PRIVATE KEY-----") {
+		return string(decoded)
+	}
+
+	// 2. Fallback ke cara lama (jika masih pakai format \n)
 	pemStr = strings.TrimSpace(pemStr)
-	pemStr = strings.Trim(pemStr, "\"")              // Hapus kutip jika tak sengaja ter-paste
-	pemStr = strings.ReplaceAll(pemStr, "\\n", "\n") // Ubah teks "\n" menjadi enter
+	pemStr = strings.Trim(pemStr, "\"")
+	pemStr = strings.ReplaceAll(pemStr, "\\n", "\n")
 	return pemStr
 }
 
@@ -163,7 +170,6 @@ SET encrypted_private_key = EXCLUDED.encrypted_private_key,
 	})
 }
 
-// handleTestSettlement memicu transaksi on-chain menggunakan Session Key
 func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
