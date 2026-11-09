@@ -151,3 +151,63 @@ SET encrypted_private_key = EXCLUDED.encrypted_private_key,
 		"status":  "success",
 	})
 }
+
+// handleTestSettlement memicu transaksi on-chain menggunakan Session Key
+func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Ambil parameter dari request
+	var req struct {
+		AgentPublicAddress string `json:"agentPublicAddress"`
+		Destination        string `json:"destination"`
+		AmountWei          string `json:"amountWei"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Ambil encrypted key dari DB
+	var encryptedKey string
+	err := dbPool.QueryRow(r.Context(), "SELECT encrypted_private_key FROM agent_session_keys WHERE agent_public_address = $1", req.AgentPublicAddress).Scan(&encryptedKey)
+	if err != nil {
+		http.Error(w, "Session key not found in DB", http.StatusNotFound)
+		return
+	}
+
+	// 2. Dekripsi Key (menggunakan logika yang sudah ada di handleGenerateSessionKey)
+	privKeyPEM := os.Getenv("RSA_PRIVATE_KEY_PEM")
+	block, _ := pem.Decode([]byte(privKeyPEM))
+	privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
+	rsaPrivKey := privKey.(*rsa.PrivateKey)
+
+	encryptedBytes, _ := base64.StdEncoding.DecodeString(encryptedKey)
+	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
+	if err != nil {
+		http.Error(w, "Failed to decrypt key", http.StatusInternalServerError)
+		return
+	}
+
+	// 3. Panggil Pimlico Bundler (Pura-pura alamat EntryPoint & SmartAccount)
+	smartAccount := common.HexToAddress(req.AgentPublicAddress)
+	entryPoint := common.HexToAddress("0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789") // EntryPoint v0.6 Base Sepolia
+	dest := common.HexToAddress(req.Destination)
+	amount := new(big.Int)
+	amount.SetString(req.AmountWei, 10)
+
+	txHash, err := SendTransactionViaPimlico(r.Context(), smartAccount, entryPoint, string(decryptedBytes), dest, amount)
+	if err != nil {
+		log.Printf("Bundler error: %v", err)
+		http.Error(w, fmt.Sprintf("Bundler error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+		"txHash": txHash,
+	})
+}
