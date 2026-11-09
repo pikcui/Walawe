@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// Pimlico JSON-RPC Request Structure
+// --- Struktur JSON-RPC ---
 type rpcRequest struct {
 	JSONRPC string        `json:"jsonrpc"`
 	ID      int           `json:"id"`
@@ -35,28 +35,26 @@ type rpcResponse struct {
 	} `json:"error"`
 }
 
-// Standard ERC-4337 UserOperation (matching our Solidity struct)
+// --- Struktur UserOperation untuk Pimlico ---
 type UserOperation struct {
 	Sender               common.Address `json:"sender"`
-	Nonce                *big.Int       `json:"nonce"`
-	InitCode             []byte         `json:"initCode"`
-	CallData             []byte         `json:"callData"`
-	CallGasLimit         *big.Int       `json:"callGasLimit"`
-	VerificationGasLimit *big.Int       `json:"verificationGasLimit"`
-	PreVerificationGas   *big.Int       `json:"preVerificationGas"`
-	MaxFeePerGas         *big.Int       `json:"maxFeePerGas"`
-	MaxPriorityFeePerGas *big.Int       `json:"maxPriorityFeePerGas"`
-	PaymasterAndData     []byte         `json:"paymasterAndData"`
-	Signature            []byte         `json:"signature"`
+	Nonce                string         `json:"nonce"`
+	InitCode             string         `json:"initCode"`
+	CallData             string         `json:"callData"` // <-- Diubah menjadi string
+	CallGasLimit         string         `json:"callGasLimit"`
+	VerificationGasLimit string         `json:"verificationGasLimit"`
+	PreVerificationGas   string         `json:"preVerificationGas"`
+	MaxFeePerGas         string         `json:"maxFeePerGas"`
+	MaxPriorityFeePerGas string         `json:"maxPriorityFeePerGas"`
+	PaymasterAndData     string         `json:"paymasterAndData"`
+	Signature            string         `json:"signature"`
 }
 
-// Fungsi untuk mengirim JSON-RPC ke Pimlico
 func pimlicoRPC(method string, params []interface{}) (json.RawMessage, error) {
 	apiKey := os.Getenv("PIMLICO_API_KEY")
 	if apiKey == "" {
 		return nil, fmt.Errorf("PIMLICO_API_KEY is not set")
 	}
-	// Endpoint Base Sepolia Pimlico
 	url := fmt.Sprintf("https://api.pimlico.io/v2/base-sepolia/rpc?apikey=%s", apiKey)
 
 	reqBody := rpcRequest{
@@ -85,62 +83,64 @@ func pimlicoRPC(method string, params []interface{}) (json.RawMessage, error) {
 	return rpcResp.Result, nil
 }
 
-// SignUserOperation menandatangani UserOp menggunakan Session Key (Private Key Hex)
-func signUserOp(privKeyHex string, userOpHash common.Hash) ([]byte, error) {
+func signUserOp(privKeyHex string, userOpHash common.Hash) (string, error) {
 	privKeyHex = strings.TrimPrefix(privKeyHex, "0x")
 	privBytes, err := hex.DecodeString(privKeyHex)
-	if err != nil {
-		return nil, err
-	}
-
-	privateKey, err := crypto.ToECDSA(privBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	signature, err := crypto.Sign(userOpHash.Bytes(), privateKey)
-	if err != nil {
-		return nil, err
-	}
-	return signature, nil
-}
-
-// PackExecuteCallData membungkus panggilan transfer ke dalam fungsi 'execute' kontrak kita
-func packExecuteCallData(dest common.Address, value *big.Int, data []byte) ([]byte, error) {
-	// ABI Minimal untuk execute(address,uint256,bytes)
-	const abiJSON = `[{"inputs":[{"internalType":"address","name":"dest","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"bytes","name":"func","type":"bytes"}],"name":"execute","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
-	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
-	if err != nil {
-		return nil, err
-	}
-	return contractABI.Pack("execute", dest, value, data)
-}
-
-// SendTransactionViaPimlico adalah fungsi utama untuk mengeksekusi settlement
-func SendTransactionViaPimlico(ctx context.Context, smartAccount common.Address, entryPoint common.Address, decryptedPrivKey string, dest common.Address, value *big.Int) (string, error) {
-
-	// 1. Susun CallData (Misal: memanggil fungsi execute untuk transfer)
-	callData, err := packExecuteCallData(dest, value, []byte{})
 	if err != nil {
 		return "", err
 	}
 
-	// 2. Siapkan UserOperation (Dummy gas limits dulu, nanti Pimlico yang hitung)
-	userOp := UserOperation{
-		Sender:               smartAccount,
-		Nonce:                big.NewInt(0), // Idealnya ambil dari EntryPoint nonce()
-		InitCode:             []byte{},
-		CallData:             callData,
-		CallGasLimit:         big.NewInt(100000),
-		VerificationGasLimit: big.NewInt(150000),
-		PreVerificationGas:   big.NewInt(21000),
-		MaxFeePerGas:         big.NewInt(1000000000),
-		MaxPriorityFeePerGas: big.NewInt(1000000000),
-		PaymasterAndData:     []byte{},
-		Signature:            []byte{},
+	privateKey, err := crypto.ToECDSA(privBytes)
+	if err != nil {
+		return "", err
 	}
 
-	// 3. Minta Pimlico untuk menghitung UserOpHash
+	signature, err := crypto.Sign(userOpHash.Bytes(), privateKey)
+	if err != nil {
+		return "", err
+	}
+	return "0x" + hex.EncodeToString(signature), nil
+}
+
+func packExecuteCallData(dest common.Address, value *big.Int, data []byte) (string, error) {
+	const abiJSON = `[{"inputs":[{"internalType":"address","name":"dest","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"},{"internalType":"bytes","name":"func","type":"bytes"}],"name":"execute","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
+	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
+	if err != nil {
+		return "", err
+	}
+	packedBytes, err := contractABI.Pack("execute", dest, value, data)
+	if err != nil {
+		return "", err
+	}
+	// KUNCI PERBAIKAN: Kembalikan sebagai string hex dengan prefix 0x
+	return "0x" + hex.EncodeToString(packedBytes), nil
+}
+
+func SendTransactionViaPimlico(ctx context.Context, smartAccount common.Address, entryPoint common.Address, decryptedPrivKey string, dest common.Address, value *big.Int) (string, error) {
+
+	// 1. Dapatkan callData dalam format string hex yang benar
+	callDataHex, err := packExecuteCallData(dest, value, []byte{})
+	if err != nil {
+		return "", err
+	}
+
+	// 2. Susun UserOperation dengan semua field sebagai string (format Pimlico)
+	userOp := UserOperation{
+		Sender:               smartAccount,
+		Nonce:                "0x0",
+		InitCode:             "0x",
+		CallData:             callDataHex,  // <-- Sekarang berisi string hex yang benar
+		CallGasLimit:         "0x186a0",    // 100000
+		VerificationGasLimit: "0x249f0",    // 150000
+		PreVerificationGas:   "0x5208",     // 21000
+		MaxFeePerGas:         "0x3b9aca00", // 1 Gwei
+		MaxPriorityFeePerGas: "0x3b9aca00", // 1 Gwei
+		PaymasterAndData:     "0x",
+		Signature:            "0x",
+	}
+
+	// 3. Minta Pimlico untuk menghitung UserOpHash (opsional, tapi disarankan)
+	// Untuk simplifikasi, kita langsung kirim. Jika error, kita perlu estimasi gas.
 	params := []interface{}{userOp, entryPoint.Hex()}
 	res, err := pimlicoRPC("eth_sendUserOperation", params)
 
