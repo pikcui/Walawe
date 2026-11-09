@@ -142,7 +142,7 @@ export default function Playground() {
         <div ref={messagesEndRef} className="h-2" />
       </div>
 
-      <div className="shrink-0 p-4 md:px-6 bg-black border-t border-neutral-900 z-10">
+      <div className="shrink-0 p-4 md:px-6 bg-black z-10">
         <form onSubmit={handleSend} className="relative flex items-center bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden shadow-lg focus-within:border-neutral-600 transition-colors">
           <input type="text" value={input} onChange={e => setInput(e.target.value)} placeholder="Message Agent..." disabled={isLoading} className="w-full bg-transparent px-5 py-4 text-white text-[15px] focus:outline-none placeholder:text-neutral-600" />
           <button type="submit" disabled={isLoading || !input.trim()} className="absolute right-2 p-2 bg-white text-black rounded-xl hover:bg-neutral-200 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"><Icons.Send /></button>

@@ -24,7 +24,8 @@ const Icons = {
   Message: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>),
   Settings: () => (<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>),
   Eye: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>),
-  EyeOff: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>)
+  EyeOff: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>),
+  Telegram: () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>)
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
@@ -49,7 +50,7 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null); 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // Playground Config State (Sebagai Halaman Penuh)
+  // Playground Config State
   const [pgWalaweKey, setPgWalaweKey] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_walawe_key') || '' : '');
   const [pgProvider, setPgProvider] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_provider') || 'gemini' : 'gemini');
   const [pgProviderKey, setPgProviderKey] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('pg_provider_key') || '' : '');
@@ -119,9 +120,26 @@ export default function Home() {
       ]);
       if (balRes.status === 401) { localStorage.clear(); router.push('/login'); return; }
       const [balData, appData, usageData, keysData, policyJson] = await Promise.all([balRes.json(), appRes.json(), usageRes.json(), keysRes.json(), policyRes.json()]);
+      
       setBalance(balData.balance_micro_usd);
       setApprovals(Array.isArray(appData) ? appData : []);
-      setChartData(Array.isArray(usageData) ? usageData : []);
+      
+      // PROSES DATA GRAFIK AGAR GARIS MUNCUL
+      const rawUsage = Array.isArray(usageData) ? usageData : [];
+      const processedUsage = [];
+      const today = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayData = rawUsage.find((u: any) => u.date === dateStr);
+        processedUsage.push({
+          date: dateStr,
+          total: dayData ? dayData.total : 0
+        });
+      }
+      setChartData(processedUsage);
+
       setApiKeys(Array.isArray(keysData) ? keysData : []);
       if (policyJson && policyJson.allowed_models) {
         setPolicyData(policyJson);
@@ -312,6 +330,11 @@ export default function Home() {
             </div>
             
             <div className="flex flex-col space-y-4 shrink-0 border-t border-neutral-900 pt-4 mt-2">
+              {/* TELEGRAM SUPPORT BUTTON */}
+              <a href="https://t.me/+6282124643404" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                <Icons.Telegram /> Telegram Support
+              </a>
+
               {isConnected && (
                 <div className="flex items-center justify-between bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl">
                   <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span><span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 6)}...{address?.slice(-4)}</span></div>
@@ -432,7 +455,7 @@ export default function Home() {
             <button onClick={handleLogout} className="text-xs text-neutral-500 hover:text-white transition-colors">{t.logout}</button>
           </div>
 
-          {/* Mobile Topbar (Wallet Icon instead of +) */}
+          {/* Mobile Topbar */}
           <div className="flex md:hidden items-center gap-3">
             {isConnected && (
                <div className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span><span className="text-[10px] font-mono text-neutral-300">{address?.slice(0, 4)}...{address?.slice(-3)}</span></div>
@@ -486,7 +509,7 @@ export default function Home() {
                     <div className="h-72 w-full">
                       {chartData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
                             <defs>
                               <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4}/>
@@ -494,10 +517,21 @@ export default function Home() {
                               </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                            <XAxis dataKey="date" stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} />
+                            <XAxis 
+                              dataKey="date" 
+                              stroke="#555" 
+                              tick={{ fill: '#888', fontSize: 11 }} 
+                              tickLine={false} 
+                              axisLine={false} 
+                              tickFormatter={(val) => {
+                                const d = new Date(val);
+                                return `${d.getDate()}/${d.getMonth() + 1}`;
+                              }}
+                              tickMargin={10}
+                            />
                             <YAxis width={60} stroke="#555" tick={{ fill: '#888', fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(4)}`} />
                             <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #333', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} formatter={(value: number) => [`$${(value / 1000000).toFixed(5)}`, 'Spent']} />
-                            <Area type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
+                            <Area type="monotone" dataKey="total" stroke="#ffffff" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" activeDot={{ r: 6, fill: '#fff', stroke: '#000' }} />
                           </AreaChart>
                         </ResponsiveContainer>
                       ) : <div className="h-full flex items-center justify-center text-neutral-600 text-sm">{t.noSpending}</div>}
