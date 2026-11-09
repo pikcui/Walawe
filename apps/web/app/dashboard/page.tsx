@@ -8,6 +8,7 @@ import { parseUnits } from 'viem';
 import { baseSepolia } from 'wagmi/chains';
 import { useLanguage } from '../context/LanguageContext';
 import Playground from '../components/Playground';
+import GenerateSessionKey from '../../src/components/GenerateSessionKey';
 
 const Icons = {
   Wallet: () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>),
@@ -39,7 +40,7 @@ const parseJwt = (token: string) => { try { return JSON.parse(atob(token.split('
 
 export default function Home() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'policy' | 'playground' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'api-keys' | 'session-keys' | 'policy' | 'playground' | 'settings'>('overview');
   
   const [balance, setBalance] = useState<number | null>(null);
   const [approvals, setApprovals] = useState<any[]>([]);
@@ -313,6 +314,11 @@ export default function Home() {
                 <div className="flex items-center gap-3 text-sm font-medium"><Icons.Key /> API Keys</div>
                 <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Generate & revoke agent access tokens</span>
               </button>
+
+              <button onClick={() => { setActiveTab('session-keys'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'session-keys' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
+                <div className="flex items-center gap-3 text-sm font-medium"><Icons.Shield /> Session Keys</div>
+                <span className="text-[10px] text-neutral-500 ml-7 leading-tight">Generate Web3 keys for agent settlements</span>
+              </button>
               
               <button onClick={() => { setActiveTab('policy'); setShowMobileMenu(false); }} className={`flex flex-col items-start gap-1 text-left px-4 py-3 rounded-xl transition-colors ${activeTab === 'policy' ? 'bg-neutral-900 text-white' : 'text-neutral-400 hover:text-white'}`}>
                 <div className="flex items-center gap-3 text-sm font-medium"><Icons.Shield /> Policy Engine</div>
@@ -435,6 +441,7 @@ export default function Home() {
             <div className="hidden md:flex items-center gap-6">
               <button onClick={() => setActiveTab('overview')} className={`text-sm font-medium transition-colors ${activeTab === 'overview' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Overview</button>
               <button onClick={() => setActiveTab('api-keys')} className={`text-sm font-medium transition-colors ${activeTab === 'api-keys' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>API Keys</button>
+              <button onClick={() => setActiveTab('session-keys')} className={`text-sm font-medium transition-colors ${activeTab === 'session-keys' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Session Keys</button>
               <button onClick={() => setActiveTab('policy')} className={`text-sm font-medium transition-colors ${activeTab === 'policy' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Policy</button>
               <button onClick={() => setActiveTab('playground')} className={`text-sm font-medium transition-colors ${activeTab === 'playground' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Playground</button>
               <button onClick={() => setActiveTab('settings')} className={`text-sm font-medium transition-colors ${activeTab === 'settings' ? 'text-white' : 'text-neutral-500 hover:text-white'}`}>Settings</button>
@@ -606,6 +613,18 @@ export default function Home() {
                         ))}
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'session-keys' && (
+                <div className="space-y-8 animate-fade-in max-w-4xl mx-auto w-full">
+                  <div>
+                    <h1 className="text-3xl font-bold text-white tracking-tighter">Session Keys</h1>
+                    <p className="text-neutral-500 text-sm mt-1">Generate secure Web3 keys for AI agents to perform on-chain settlements.</p>
+                  </div>
+                  <div className="border-t border-neutral-900 pt-8 flex justify-center">
+                    <GenerateSessionKey />
                   </div>
                 </div>
               )}
