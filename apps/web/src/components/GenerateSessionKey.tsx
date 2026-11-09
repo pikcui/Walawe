@@ -24,7 +24,7 @@ const WALAWE_ACCOUNT_ADDRESS = "0xb3E2D0A16bBC1d7b8c3543aEB458D22ddD961F68";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
 export default function GenerateSessionKey() {
-  const { address: ownerAddress } = useAccount();
+  const { address: ownerAddress, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -64,14 +64,15 @@ export default function GenerateSessionKey() {
   }
 
   const handleGenerate = async () => {
-    if (!ownerAddress) {
-      alert("Please connect your wallet first.");
+    // Ganti pop-up jelek dengan status inline yang rapi
+    if (!isConnected || !ownerAddress) {
+      setStatus("⚠️ Please connect your wallet first using the wallet icon in the top bar.");
       return;
     }
 
     const token = localStorage.getItem('walawe_token');
     if (!token) {
-      alert("You are not logged in. Please login again.");
+      setStatus("❌ You are not logged in. Please login again.");
       return;
     }
 
@@ -111,7 +112,7 @@ export default function GenerateSessionKey() {
       setStatus("Saving encrypted key to backend...");
 
       const saveRes = await fetch(`${API_URL}/admin/generate-session-key`, {
-        method: "POST",
+        method: 'POST',
         headers,
         body: JSON.stringify({
           encryptedPrivateKey: encryptedKey,
@@ -133,7 +134,7 @@ export default function GenerateSessionKey() {
   };
 
   return (
-    <div className="p-6 border border-neutral-800 rounded-2xl bg-neutral-950 text-white max-w-md">
+    <div className="p-6 border border-neutral-800 rounded-2xl bg-neutral-950 text-white max-w-md w-full">
       <h3 className="text-lg font-semibold mb-2">Agent Session Key</h3>
       <p className="text-sm text-neutral-400 mb-6">
         Generate a secure key to allow your AI Agent to perform on-chain settlements within the limits you set.
@@ -148,7 +149,11 @@ export default function GenerateSessionKey() {
       </button>
 
       {status && (
-        <div className="mt-4 p-4 bg-black border border-neutral-800 rounded-lg text-sm text-neutral-300 font-mono break-words">
+        <div className={`mt-4 p-4 border rounded-lg text-sm font-mono break-words transition-all animate-fade-in ${
+          status.includes("⚠️") || status.includes("❌") 
+            ? "bg-red-950/30 border-red-900/50 text-red-400" 
+            : "bg-black border-neutral-800 text-neutral-300"
+        }`}>
           {status}
         </div>
       )}
