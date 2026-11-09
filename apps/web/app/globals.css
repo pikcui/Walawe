@@ -31,3 +31,7 @@
 .animate-slide-down {
   animation: slide-down 0.3s ease-out forwards;
 }
+*:focus { outline: none !important; box-shadow: none !important; }
+.recharts-wrapper, .recharts-surface, .recharts-responsive-container {
+  outline: none !important;
+}
