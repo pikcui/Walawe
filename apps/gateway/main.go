@@ -116,6 +116,7 @@ func newMux() http.Handler {
 	mux.HandleFunc("/admin/login", handleAdminLogin)
 	mux.HandleFunc("/admin/rsa-public-key", handleGetRSAPublicKey)
 	mux.HandleFunc("/admin/generate-session-key", AdminOnlyMiddleware(handleGenerateSessionKey))
+	mux.HandleFunc("/admin/test-settlement", AdminOnlyMiddleware(handleTestSettlement))
 	mux.HandleFunc("/admin/register", handleAdminRegister)
 
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
