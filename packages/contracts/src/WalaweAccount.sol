@@ -15,6 +15,7 @@ struct UserOperation {
     address sender;
     uint256 nonce;
     bytes initCode;
+    bytes callData; // <--- INI YANG TADI HILANG, SUDAH DIPERBAIKI
     uint256 callGasLimit;
     uint256 verificationGasLimit;
     uint256 preVerificationGas;
