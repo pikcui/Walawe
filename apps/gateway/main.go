@@ -114,6 +114,8 @@ func newMux() http.Handler {
 	mux.HandleFunc("/v1/chat/completions", rateLimitMiddleware(authMiddleware(handleChatCompletions)))
 	mux.HandleFunc("/v1/premium-data", rateLimitMiddleware(authMiddleware(X402Middleware(dbStore, 1000, "0x8a21C2f8F19123de2bcc5F7932d2351eba1Db6Eb")(handlePremiumData))))
 	mux.HandleFunc("/admin/login", handleAdminLogin)
+	mux.HandleFunc("/admin/rsa-public-key", handleGetRSAPublicKey)
+	mux.HandleFunc("/admin/generate-session-key", AdminOnlyMiddleware(handleGenerateSessionKey))
 	mux.HandleFunc("/admin/register", handleAdminRegister)
 
 	mux.HandleFunc("/admin/balance", AdminAuthMiddleware(handleGetBalance))
