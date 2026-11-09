@@ -14,18 +14,26 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// handleGetRSAPublicKey mengambil RSA Private Key dari ENV, lalu mengekstrak Public Key-nya untuk Frontend
+// cleanPEM membersihkan string dari tanda kutip dan mengubah literal \n menjadi enter asli
+func cleanPEM(pemStr string) string {
+	pemStr = strings.TrimSpace(pemStr)
+	pemStr = strings.Trim(pemStr, "\"")              // Hapus kutip jika tak sengaja ter-paste
+	pemStr = strings.ReplaceAll(pemStr, "\\n", "\n") // Ubah teks "\n" menjadi enter
+	return pemStr
+}
+
 func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	privKeyPEM := os.Getenv("RSA_PRIVATE_KEY_PEM")
+	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	if privKeyPEM == "" {
 		log.Println("ERROR: RSA_PRIVATE_KEY_PEM is not set")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -34,6 +42,7 @@ func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	if block == nil {
+		log.Printf("Failed to parse PEM block. Isi ENV: %s", privKeyPEM)
 		http.Error(w, "Failed to parse PEM block", http.StatusInternalServerError)
 		return
 	}
@@ -67,7 +76,6 @@ func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleGenerateSessionKey menerima Encrypted Private Key dari Frontend, mendekripsinya, lalu menyimpannya
 func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -91,7 +99,7 @@ func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	privKeyPEM := os.Getenv("RSA_PRIVATE_KEY_PEM")
+	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
@@ -179,7 +187,7 @@ func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	privKeyPEM := os.Getenv("RSA_PRIVATE_KEY_PEM")
+	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 	rsaPrivKey := privKey.(*rsa.PrivateKey)
