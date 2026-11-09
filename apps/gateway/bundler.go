@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -142,14 +141,8 @@ func SendTransactionViaPimlico(ctx context.Context, smartAccount common.Address,
 	}
 
 	// 3. Minta Pimlico untuk menghitung UserOpHash
-	// Pimlico akan memanggil EntryPoint getUserOpHash()
 	params := []interface{}{userOp, entryPoint.Hex()}
 	res, err := pimlicoRPC("eth_sendUserOperation", params)
-	// Catatan: Ini adalah versi simplifikasi. Di produksi, kamu harus memanggil pm_sponsorUserOperation dulu
-	// atau menghitung userOpHash via eth_call sebelum menandatangani.
-
-	// Untuk demo ini, kita asumsikan Pimlico menangani hash-nya (tidak direkomendasikan untuk produksi tanpa simulasi)
-	// Implementasi lengkap butuh: eth_estimateUserOperationGas -> hitung hash -> sign -> eth_sendUserOperation
 
 	if err != nil {
 		return "", err
