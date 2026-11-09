@@ -91,14 +91,9 @@ func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 	rsaPrivKey := privKey.(*rsa.PrivateKey)
 	encryptedBytes, _ := base64.StdEncoding.DecodeString(req.EncryptedPrivateKey)
 
-	// PERBAIKAN 1: Gunakan := untuk mendeklarasikan decryptedBytes dan err
-	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
+	_, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
 	if err != nil {
 		http.Error(w, "Failed to decrypt", http.StatusInternalServerError)
-		return
-	}
-	if len(decryptedBytes) == 0 {
-		http.Error(w, "Decrypted key is empty", http.StatusBadRequest)
 		return
 	}
 
@@ -134,6 +129,14 @@ func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	smartAccountStr := os.Getenv("SMART_ACCOUNT_ADDRESS")
+	if smartAccountStr == "" {
+		http.Error(w, "SMART_ACCOUNT_ADDRESS is not set in ENV", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("DEBUG: Mengirim transaksi dari Smart Account: %s", smartAccountStr) // <-- LOG DEBUG
+
 	var req struct {
 		AgentPublicAddress string `json:"agentPublicAddress"`
 		Destination        string `json:"destination"`
@@ -157,14 +160,13 @@ func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 	rsaPrivKey := privKey.(*rsa.PrivateKey)
 	encryptedBytes, _ := base64.StdEncoding.DecodeString(encryptedKey)
 
-	// PERBAIKAN 2: Di sini decryptedBytes BENAR-BENAR dipakai untuk Pimlico
 	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
 	if err != nil {
 		http.Error(w, "Failed to decrypt key", http.StatusInternalServerError)
 		return
 	}
 
-	smartAccount := common.HexToAddress("0xb3e2D0A16bBC1d7b8c3543aEB458D22ddD961F68")
+	smartAccount := common.HexToAddress(smartAccountStr)
 	entryPoint := common.HexToAddress("0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789")
 	dest := common.HexToAddress(req.Destination)
 	amount := new(big.Int)
