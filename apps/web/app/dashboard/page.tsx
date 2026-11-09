@@ -732,3 +732,4 @@ export default function Home() {
     </div>
   );
 }
+// Force Vercel rebuild - Mon Nov  9 18:03:32 WIB 2026
