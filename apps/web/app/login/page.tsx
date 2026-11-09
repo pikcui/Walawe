@@ -50,7 +50,7 @@ export default function Login() {
 
       <div className="w-full max-w-md bg-neutral-950 border border-neutral-800 rounded-2xl p-8 shadow-2xl">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-8 h-8 rounded bg-white text-black flex items-center justify-center font-bold text-lg">W</div>
+          <div className="w-8 h-8 rounded bg-white text-black flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M2 4 L9 18 L12 12 L15 18 L22 4 L18 4 L14 13 L12 9 L10 13 L6 4 Z" /></svg></div>
           <h1 className="text-xl font-bold text-white tracking-tight">{t.loginTitle}</h1>
         </div>
 

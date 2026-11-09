@@ -21,7 +21,7 @@ export default function LandingPage() {
       {/* Navbar */}
       <nav className="relative z-20 w-full max-w-6xl mx-auto px-6 py-6 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-white text-black flex items-center justify-center font-bold text-lg">W</div>
+          <div className="w-8 h-8 rounded bg-white text-black flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M2 4 L9 18 L12 12 L15 18 L22 4 L18 4 L14 13 L12 9 L10 13 L6 4 Z" /></svg></div>
           <span className="text-xl font-bold tracking-tight">Walawe</span>
         </div>
         <div className="flex items-center gap-6">
