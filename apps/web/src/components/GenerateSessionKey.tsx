@@ -20,7 +20,7 @@ const WALAWE_ACCOUNT_ABI = [
   }
 ] as const;
 
-const WALAWE_ACCOUNT_ADDRESS = "0xb3E2D0A16bBC1d7b8c3543aEB458D22ddD961F68";
+const WALAWE_ACCOUNT_ADDRESS = "0xb3e2d0a16bbc1d7b8c3543aeb458d22ddd961f68";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080';
 
 export default function GenerateSessionKey() {
