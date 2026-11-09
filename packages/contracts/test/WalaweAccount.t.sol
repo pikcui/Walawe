@@ -22,6 +22,9 @@ contract WalaweAccountTest is Test {
 
         vm.prank(owner);
         account = new WalaweAccount(owner, entryPoint);
+        
+        // Beri saldo kontrak untuk bayar gas
+        vm.deal(address(account), 1 ether);
     }
 
     function test_OwnerCanAddSessionKey() public {
@@ -33,7 +36,7 @@ contract WalaweAccountTest is Test {
     function test_ValidateUserOp_OwnerBypass() public {
         bytes32 userOpHash = keccak256("test_op");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, userOpHash);
-        
+
         UserOperation memory userOp;
         userOp.signature = abi.encodePacked(r, s, v);
 
@@ -41,17 +44,17 @@ contract WalaweAccountTest is Test {
         assertEq(account.validateUserOp(userOp, userOpHash, 0), 0);
     }
 
-    function test_ValidateUserOp_SessionKey_ValidTransfer() public {
+    function test_ValidateUserOp_SessionKey_ValidExecute() public {
         vm.prank(owner);
         account.addSessionKey(agentKey, block.timestamp + 1 days, 1000, allowedDest);
 
         bytes32 userOpHash = keccak256("test_op_session");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(agentPrivateKey, userOpHash);
-        
+
         UserOperation memory userOp;
         userOp.signature = abi.encodePacked(r, s, v);
-        // Construct valid callData: transfer(allowedDest, 500)
-        userOp.callData = abi.encodeWithSignature("transfer(address,uint256)", allowedDest, 500);
+        // Construct valid callData: execute(allowedDest, 500, "")
+        userOp.callData = abi.encodeWithSelector(bytes4(0xb61d27f6), allowedDest, 500, "");
 
         vm.prank(entryPoint);
         assertEq(account.validateUserOp(userOp, userOpHash, 0), 0);
@@ -63,11 +66,11 @@ contract WalaweAccountTest is Test {
 
         bytes32 userOpHash = keccak256("test_op_session");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(agentPrivateKey, userOpHash);
-        
+
         UserOperation memory userOp;
         userOp.signature = abi.encodePacked(r, s, v);
-        // Construct callData: transfer(allowedDest, 2000) -> Exceeds max 1000
-        userOp.callData = abi.encodeWithSignature("transfer(address,uint256)", allowedDest, 2000);
+        // Construct callData: execute(allowedDest, 2000, "") -> Exceeds max 1000
+        userOp.callData = abi.encodeWithSelector(bytes4(0xb61d27f6), allowedDest, 2000, "");
 
         vm.prank(entryPoint);
         vm.expectRevert("Amount exceeds Session Key limit");
@@ -80,11 +83,11 @@ contract WalaweAccountTest is Test {
 
         bytes32 userOpHash = keccak256("test_op_session");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(agentPrivateKey, userOpHash);
-        
+
         UserOperation memory userOp;
         userOp.signature = abi.encodePacked(r, s, v);
-        // Construct callData: transfer(unauthorizedDest, 500)
-        userOp.callData = abi.encodeWithSignature("transfer(address,uint256)", unauthorizedDest, 500);
+        // Construct callData: execute(unauthorizedDest, 500, "")
+        userOp.callData = abi.encodeWithSelector(bytes4(0xb61d27f6), unauthorizedDest, 500, "");
 
         vm.prank(entryPoint);
         vm.expectRevert("Invalid destination for Session Key");
