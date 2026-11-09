@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// cleanPEM mendeteksi apakah ENV berisi Base64 atau teks biasa
 func cleanPEM(pemStr string) string {
 	decoded, err := base64.StdEncoding.DecodeString(pemStr)
 	if err == nil && strings.Contains(string(decoded), "-----BEGIN PRIVATE KEY-----") {
@@ -31,7 +30,6 @@ func cleanPEM(pemStr string) string {
 	return pemStr
 }
 
-// ... (fungsi handleGetRSAPublicKey dan handleGenerateSessionKey tetap sama seperti sebelumnya)
 func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -92,11 +90,18 @@ func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 	privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 	rsaPrivKey := privKey.(*rsa.PrivateKey)
 	encryptedBytes, _ := base64.StdEncoding.DecodeString(req.EncryptedPrivateKey)
+
+	// PERBAIKAN 1: Gunakan := untuk mendeklarasikan decryptedBytes dan err
 	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
 	if err != nil {
 		http.Error(w, "Failed to decrypt", http.StatusInternalServerError)
 		return
 	}
+	if len(decryptedBytes) == 0 {
+		http.Error(w, "Decrypted key is empty", http.StatusBadRequest)
+		return
+	}
+
 	createTableQuery := `
 CREATE TABLE IF NOT EXISTS agent_session_keys (
 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -123,7 +128,6 @@ ON CONFLICT (agent_public_address) DO UPDATE SET encrypted_private_key = EXCLUDE
 	json.NewEncoder(w).Encode(map[string]string{"message": "success", "status": "success"})
 }
 
-// KUNCI PERBAIKAN: handleTestSettlement menggunakan alamat WalaweAccount sebagai Sender
 func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -131,7 +135,7 @@ func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		AgentPublicAddress string `json:"agentPublicAddress"` // Ini adalah alamat Session Key
+		AgentPublicAddress string `json:"agentPublicAddress"`
 		Destination        string `json:"destination"`
 		AmountWei          string `json:"amountWei"`
 	}
@@ -140,7 +144,6 @@ func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Cari Private Key menggunakan alamat Session Key (AgentPublicAddress)
 	var encryptedKey string
 	err := dbPool.QueryRow(r.Context(), "SELECT encrypted_private_key FROM agent_session_keys WHERE agent_public_address = $1", req.AgentPublicAddress).Scan(&encryptedKey)
 	if err != nil {
@@ -148,28 +151,25 @@ func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Dekripsi Key
 	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
 	rsaPrivKey := privKey.(*rsa.PrivateKey)
 	encryptedBytes, _ := base64.StdEncoding.DecodeString(encryptedKey)
+
+	// PERBAIKAN 2: Di sini decryptedBytes BENAR-BENAR dipakai untuk Pimlico
 	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
 	if err != nil {
 		http.Error(w, "Failed to decrypt key", http.StatusInternalServerError)
 		return
 	}
 
-	// 3. PERBAIKAN: Gunakan alamat WalaweAccount sebagai Sender (Smart Account)
-	// Alamat ini adalah Brankas yang kita deploy sebelumnya.
 	smartAccount := common.HexToAddress("0xb3e2D0A16bBC1d7b8c3543aEB458D22ddD961F68")
-
 	entryPoint := common.HexToAddress("0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789")
 	dest := common.HexToAddress(req.Destination)
 	amount := new(big.Int)
 	amount.SetString(req.AmountWei, 10)
 
-	// 4. Kirim transaksi via Pimlico
 	txHash, err := SendTransactionViaPimlico(r.Context(), smartAccount, entryPoint, string(decryptedBytes), dest, amount)
 	if err != nil {
 		log.Printf("Bundler error: %v", err)
