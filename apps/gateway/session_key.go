@@ -14,18 +14,26 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// handleGetRSAPublicKey mengambil RSA Private Key dari ENV, lalu mengekstrak Public Key-nya untuk Frontend
+// cleanPEM membersihkan string dari tanda kutip dan mengubah literal \n menjadi enter asli
+func cleanPEM(pemStr string) string {
+	pemStr = strings.TrimSpace(pemStr)
+	pemStr = strings.Trim(pemStr, "\"")              // Hapus kutip jika tak sengaja ter-paste
+	pemStr = strings.ReplaceAll(pemStr, "\\n", "\n") // Ubah teks "\n" menjadi enter
+	return pemStr
+}
+
 func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	privKeyPEM := os.Getenv("RSA_PRIVATE_KEY_PEM")
+	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	if privKeyPEM == "" {
 		log.Println("ERROR: RSA_PRIVATE_KEY_PEM is not set")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -34,6 +42,7 @@ func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	if block == nil {
+		log.Printf("Failed to parse PEM block. Isi ENV: %s", privKeyPEM)
 		http.Error(w, "Failed to parse PEM block", http.StatusInternalServerError)
 		return
 	}
@@ -67,7 +76,6 @@ func handleGetRSAPublicKey(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleGenerateSessionKey menerima Encrypted Private Key dari Frontend, mendekripsinya, lalu menyimpannya
 func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -91,7 +99,7 @@ func handleGenerateSessionKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	privKeyPEM := os.Getenv("RSA_PRIVATE_KEY_PEM")
+	privKeyPEM := cleanPEM(os.Getenv("RSA_PRIVATE_KEY_PEM"))
 	block, _ := pem.Decode([]byte(privKeyPEM))
 	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
@@ -152,61 +160,5 @@ SET encrypted_private_key = EXCLUDED.encrypted_private_key,
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Session key successfully generated and encrypted securely",
 		"status":  "success",
-	})
-}
-
-// handleTestSettlement memicu transaksi on-chain menggunakan Session Key
-func handleTestSettlement(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		AgentPublicAddress string `json:"agentPublicAddress"`
-		Destination        string `json:"destination"`
-		AmountWei          string `json:"amountWei"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	var encryptedKey string
-	err := dbPool.QueryRow(r.Context(), "SELECT encrypted_private_key FROM agent_session_keys WHERE agent_public_address = $1", req.AgentPublicAddress).Scan(&encryptedKey)
-	if err != nil {
-		http.Error(w, "Session key not found in DB", http.StatusNotFound)
-		return
-	}
-
-	privKeyPEM := os.Getenv("RSA_PRIVATE_KEY_PEM")
-	block, _ := pem.Decode([]byte(privKeyPEM))
-	privKey, _ := x509.ParsePKCS8PrivateKey(block.Bytes)
-	rsaPrivKey := privKey.(*rsa.PrivateKey)
-
-	encryptedBytes, _ := base64.StdEncoding.DecodeString(encryptedKey)
-	decryptedBytes, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, rsaPrivKey, encryptedBytes, nil)
-	if err != nil {
-		http.Error(w, "Failed to decrypt key", http.StatusInternalServerError)
-		return
-	}
-
-	smartAccount := common.HexToAddress(req.AgentPublicAddress)
-	entryPoint := common.HexToAddress("0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789")
-	dest := common.HexToAddress(req.Destination)
-	amount := new(big.Int)
-	amount.SetString(req.AmountWei, 10)
-
-	txHash, err := SendTransactionViaPimlico(r.Context(), smartAccount, entryPoint, string(decryptedBytes), dest, amount)
-	if err != nil {
-		log.Printf("Bundler error: %v", err)
-		http.Error(w, fmt.Sprintf("Bundler error: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "success",
-		"txHash": txHash,
 	})
 }
