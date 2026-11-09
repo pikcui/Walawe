@@ -15,7 +15,6 @@ struct UserOperation {
     address sender;
     uint256 nonce;
     bytes initCode;
-    bytes callData;
     uint256 callGasLimit;
     uint256 verificationGasLimit;
     uint256 preVerificationGas;
@@ -51,10 +50,19 @@ contract WalaweAccount is IAccount {
         entryPoint = _entryPoint;
     }
 
+    receive() external payable {}
+
+    // Fungsi Execute standar untuk Smart Account
+    function execute(address dest, uint256 value, bytes calldata func) external {
+        require(msg.sender == entryPoint || msg.sender == owner, "Only EntryPoint or Owner");
+        (bool success, ) = dest.call{value: value}(func);
+        require(success, "Execution failed");
+    }
+
     function addSessionKey(
-        address key, 
-        uint256 validUntil, 
-        uint256 maxAmountPerTx, 
+        address key,
+        uint256 validUntil,
+        uint256 maxAmountPerTx,
         address allowedDestination
     ) external onlyOwner {
         sessionKeys[key] = SessionKey(true, validUntil, maxAmountPerTx, allowedDestination);
@@ -70,41 +78,45 @@ contract WalaweAccount is IAccount {
         return sessionKeys[key].active && block.timestamp < sessionKeys[key].validUntil;
     }
 
-    // ERC-4337 Core Function with REAL ECDSA Verification and Limits Enforcement
+    // ERC-4337 Core Function
     function validateUserOp(
         UserOperation calldata userOp,
         bytes32 userOpHash,
-        uint256 /* missingAccountFunds */
-    ) external view override returns (uint256 validationData) {
+        uint256 missingAccountFunds
+    ) external override returns (uint256 validationData) {
         require(msg.sender == entryPoint, "Caller must be EntryPoint");
+
+        // Bayar gas prefund jika diminta oleh EntryPoint
+        if (missingAccountFunds > 0) {
+            (bool success, ) = payable(msg.sender).call{value: missingAccountFunds}("");
+            (success);
+        }
 
         // 1. Verify Signature
         address signer = ECDSA.recover(userOpHash, userOp.signature);
-        
+
         // 2. Owner bypasses limits (Master Key)
         if (signer == owner) {
-            return 0; 
+            return 0;
         }
 
-        // 3. Session Key must be active and not expired
+        // 3. Session Key Check
         if (isValidSession(signer)) {
-            // Decode callData to check target and amount
-            // We assume the callData is a standard transfer(address, uint256)
-            // function selector for transfer is 0xa9059cbb
-            if (userOp.callData.length >= 68) {
+            // Pastikan calldata adalah panggilan ke fungsi 'execute'
+            if (userOp.callData.length >= 4) {
                 bytes4 selector = bytes4(userOp.callData[0:4]);
-                if (selector == bytes4(0xa9059cbb)) {
-                    // Decode the address and amount from callData
-                    (address to, uint256 amount) = abi.decode(userOp.callData[4:], (address, uint256));
+                // Selector untuk execute(address,uint256,bytes) adalah 0xb61d27f6
+                if (selector == bytes4(0xb61d27f6)) {
+                    // Decode parameter execute
+                    (address dest, uint256 value, ) = abi.decode(userOp.callData[4:], (address, uint256, bytes));
                     
                     SessionKey memory sk = sessionKeys[signer];
-                    require(to == sk.allowedDestination, "Invalid destination for Session Key");
-                    require(amount <= sk.maxAmountPerTx, "Amount exceeds Session Key limit");
-                    return 0; 
+                    require(dest == sk.allowedDestination, "Invalid destination for Session Key");
+                    require(value <= sk.maxAmountPerTx, "Amount exceeds Session Key limit");
+                    return 0;
                 }
             }
-            // If we can't parse the callData or it's not a transfer, reject for safety
-            return 1; 
+            return 1; // Gagal jika bukan fungsi execute
         }
 
         return 1; // Invalid signature
