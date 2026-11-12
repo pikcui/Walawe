@@ -13,7 +13,7 @@
     "@tailwindcss/postcss": "^4.3.4",
     "@tanstack/react-query": "^5.107.1",
     "@walletconnect/ethereum-provider": "^2.26.0",
-    "mppx": "^0.17.5",
+    "mppx": "^0.18.0",
     "next": "16.4.5",
     "postcss": "^8.5.32",
     "react": "19.3.1",
